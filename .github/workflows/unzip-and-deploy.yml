@@ -20,12 +20,10 @@ jobs:
           channel: 'stable'
 
       - name: Install dependencies
-        run: |
-          flutter pub add intl:^0.20.3
-          flutter pub get
+        run: flutter pub get --supress-analytics
 
       - name: Build Web
-        run: flutter build web --base-href "/morafig-tilmid/"
+        run: flutter build web --release --no-pub --base-href "/morafig-tilmid/"
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
