@@ -15,10 +15,14 @@ jobs:
 
       - name: Extract archive to repo root
         run: |
-          set -e
-          unzip -o student_app_foundation_merged_complete.zip -d _extracted_tmp
+          unzip -o student_app_foundation_merged_complete.zip -d _extracted_tmp || true
           shopt -s dotglob
           SRC_DIR=$(find _extracted_tmp -mindepth 1 -maxdepth 1 -type d | head -n 1)
+          if [ -z "$SRC_DIR" ]; then
+            echo "ERROR: extraction failed, no folder found"
+            ls -la
+            exit 1
+          fi
           mv "$SRC_DIR"/* .
           rm -rf _extracted_tmp
           rm -f student_app_foundation_merged_complete.zip
@@ -30,3 +34,4 @@ jobs:
           git add -A
           git commit -m "Extract project archive into repo root" || echo "Nothing to commit"
           git push
+          
