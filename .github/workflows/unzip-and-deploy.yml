@@ -1,32 +1,32 @@
-name: Unzip and deploy project
+name: Deploy Flutter Web to GitHub Pages
 
 on:
+  push:
+    branches: [ main ]
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  unzip:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Extract archive and flatten
-        run: |
-          unzip -o *.zip -d extracted_tmp
-          if [ -d "extracted_tmp/student_app_foundation" ]; then
-            cp -r extracted_tmp/student_app_foundation/* ./
-          else
-            cp -r extracted_tmp/* ./
-          fi
-          rm -rf extracted_tmp
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
 
-      - name: Commit and push changes
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .
-          git commit -m "Flatten and deploy project files to root" || exit 0
-          git push
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Web
+        run: flutter build web --base-href "/morafig-tilmid/"
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./build/web
