@@ -1,0 +1,36 @@
+name: student_app
+description: >
+  Personal offline-first academic management system foundation.
+  No external AI API, no cloud dependency, no API keys required for core function.
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+  flutter: ">=3.19.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  drift: ^2.16.0
+  sqlite3: ^2.4.0
+  sqlite3_flutter_libs: ^0.5.20
+  path_provider: ^2.1.2
+  path: ^1.9.0
+  uuid: ^4.3.3
+  provider: ^6.1.2
+  shared_preferences: ^2.2.3
+  intl: ^0.19.0
+
+dev_dependencies:
+  drift_dev: ^2.16.0
+  build_runner: ^2.4.9
+  test: ^1.25.2
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.2
+
+flutter:
+  uses-material-design: true
