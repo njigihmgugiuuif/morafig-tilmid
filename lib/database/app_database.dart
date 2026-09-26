@@ -1,7 +1,6 @@
 import 'package:drift/drift.dart';
-import 'package:drift/native.dart';
 
-import 'connection/connection_stub.dart';
+import 'connection/connection.dart';
 import 'tables/core_tables.dart';
 import 'tables/curriculum_tables.dart';
 import 'tables/planning_tables.dart';
@@ -52,9 +51,7 @@ class AppDatabase extends _$AppDatabase {
   /// test file in test/ so the test suite has zero filesystem/network
   /// dependency of its own.
   factory AppDatabase.forTesting() {
-    return AppDatabase(NativeDatabase.memory(
-      setup: (rawDb) => rawDb.execute('PRAGMA foreign_keys = ON;'),
-    ));
+    return AppDatabase(DatabaseConnection.inMemory());
   }
 
   @override
