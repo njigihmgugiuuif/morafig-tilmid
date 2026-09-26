@@ -1,0 +1,39 @@
+include: package:flutter_lints/flutter.yaml
+
+# Enforces, at analysis time, the organizational half of the append-only
+# and curriculum-guard guarantees described in
+# lib/repositories/append_only_repository.dart and
+# lib/repositories/curriculum_repository.dart:
+#
+# Only files under lib/repositories/ may import the raw Drift table
+# definitions for the append-only tables (Event/Explanation/HumanOverride)
+# and the curriculum/policy tables (SubjectLoad/CurriculumVersion/
+# PolicyDocument). Every other file — engines (once built), UI (once
+# built), import/export code — must go through the Repository classes.
+#
+# NOTE: `avoid_relative_lib_imports`-style per-directory import bans are
+# not a built-in `dart analyze` lint as of this writing; enforcing this
+# precisely requires either a custom_lint plugin or a CI grep-check. Until
+# a custom_lint plugin is added (tracked as follow-up work), the
+# enforceable version of this rule today is tools/check_repository_boundaries.sh,
+# which was written AND actually run (not just described) in this phase —
+# see FOUNDATION_IMPLEMENTATION_REPORT.md for the real violation it caught
+# and the fix that was applied. Run it in CI before `flutter test`:
+#
+#   sh tools/check_repository_boundaries.sh
+#
+# lib/database/tables/ as a whole (not just app_database.dart) is exempt:
+# table files legitimately cross-reference each other via
+# .references(OtherTable, #id) for foreign keys, which is a structural
+# relationship, not a guard bypass.
+
+analyzer:
+  errors:
+    todo: ignore
+
+linter:
+  rules:
+    - always_declare_return_types
+    - avoid_print
+    - prefer_const_constructors
+    - unnecessary_null_checks

@@ -1,0 +1,84 @@
+name: Build and Deploy Flutter Web to GitHub Pages
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Flutter doctor
+        run: flutter doctor -v
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Generate Drift/build_runner code
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      # Non-blocking: surfaces analyzer issues in the log without failing
+      # the deploy while the project is still stabilizing.
+      - name: Analyze
+        run: flutter analyze || true
+
+      # NOTE (DEVIATION-8, see DEVIATIONS.md): the web database backend
+      # needs sqlite3.wasm and drift_worker.js present under web/ before
+      # this build step. If you have not yet completed that one-time
+      # manual setup per https://drift.simonbinder.eu/platforms/web/,
+      # this build will succeed but the deployed app's database will fail
+      # to open in the browser. Uncomment and adapt the step below once
+      # you have a repeatable way to fetch those two files (for example,
+      # committing them into the repo under web/ instead of fetching them
+      # here) — deliberately not auto-downloaded in this workflow, since
+      # a CI step silently pulling an unpinned binary is a bigger risk
+      # than being explicit about the manual step.
+      # - name: Fetch drift web assets
+      #   run: <your own fetch/copy step here>
+
+      - name: Build Flutter Web (release)
+        run: |
+          REPO_NAME="${GITHUB_REPOSITORY##*/}"
+          flutter build web --release --base-href "/$REPO_NAME/"
+
+      # Harmless safety net: prevents any Jekyll processing of the build
+      # output (this deploy path doesn't use Jekyll anyway).
+      - name: Add .nojekyll
+        run: touch build/web/.nojekyll
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

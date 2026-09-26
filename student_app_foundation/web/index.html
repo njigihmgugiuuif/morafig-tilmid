@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1E5F74">
+  <meta name="color-scheme" content="light dark">
+
+  <!-- SEO: title/description — required item #6 from the product brief.
+       TODO (needs your input once the GitHub Pages URL is known): add a
+       <link rel="canonical" href="https://YOUR-USERNAME.github.io/YOUR-REPO/">
+       tag here, and update the same URL in web/sitemap.xml. This cannot
+       be filled in from this sandbox because it depends on your actual
+       GitHub username/repo name. -->
+  <title>مرافق التلميذ — ثانوية رابح بطاط</title>
+  <meta name="description" content="مرافق التلميذ: تطبيق المرافقة والتنظيم الدراسي طوال العام لتلاميذ ثانوية رابح بطاط — تخطيط دراسي، متابعة التقدم، المراجعة، الأولويات، والامتحانات، ويعمل بدون اتصال بالإنترنت.">
+  <meta name="robots" content="index, follow">
+
+  <!-- Open Graph (how the link looks if shared on social apps) -->
+  <meta property="og:title" content="مرافق التلميذ">
+  <meta property="og:description" content="المرافقة والتنظيم الدراسي طوال العام — ثانوية رابح بطاط">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="icons/Icon-512.png">
+
+  <!-- iOS "Add to Home Screen" support -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="مرافق التلميذ">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <link rel="icon" type="image/png" href="favicon.png"/>
+  <link rel="manifest" href="manifest.json">
+</head>
+<body>
+  <!-- First-paint loading indicator shown before Flutter's engine takes
+       over — avoids a completely blank white screen on slower
+       connections/devices, one of the "beginner-invisible" edge cases. -->
+  <div id="app-loading" style="
+      position:fixed; inset:0; display:flex; flex-direction:column;
+      align-items:center; justify-content:center;
+      background:#1E5F74; color:#fff; font-family:sans-serif; gap:12px;">
+    <div style="font-size:20px; font-weight:bold;">مرافق التلميذ</div>
+    <div style="width:32px;height:32px;border:3px solid rgba(255,255,255,.3);
+      border-top-color:#fff; border-radius:50%; animation:spin 0.8s linear infinite;"></div>
+  </div>
+  <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+  <script>
+    // Hides the loading screen once Flutter has attached to the DOM.
+    // Modern `flutter build web` output auto-injects its own bootstrap
+    // script (flutter_bootstrap.js) before </body> — we don't hand-write
+    // the engine-loading script here to avoid it going stale against a
+    // Flutter/Dart SDK version this sandbox cannot verify (see
+    // DEVIATIONS.md, DEVIATION-9).
+    window.addEventListener('flutter-first-frame', function () {
+      var el = document.getElementById('app-loading');
+      if (el) el.remove();
+    });
+  </script>
+</body>
+</html>
