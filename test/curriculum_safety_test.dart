@@ -1,6 +1,7 @@
 import 'package:test/test.dart';
 
 import 'package:student_app/database/app_database.dart';
+import 'package:student_app/database/testing/in_memory_database.dart';
 import 'package:student_app/repositories/curriculum_repository.dart';
 import 'package:student_app/domain/enums.dart';
 import 'fixtures/seed_data.dart';
@@ -11,7 +12,7 @@ void main() {
     late CurriculumRepository repo;
 
     setUp(() {
-      db = AppDatabase.forTesting();
+      db = createInMemoryTestDatabase();
       repo = CurriculumRepository(db);
     });
     tearDown(() => db.close());
