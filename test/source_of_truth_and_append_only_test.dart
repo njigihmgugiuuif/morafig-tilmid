@@ -1,6 +1,7 @@
 import 'package:test/test.dart';
 
 import 'package:student_app/database/app_database.dart';
+import 'package:student_app/database/testing/in_memory_database.dart';
 import 'package:student_app/repositories/mastery_repository.dart';
 import 'package:student_app/repositories/event_repository.dart';
 import 'package:student_app/repositories/explanation_and_override_repositories.dart';
@@ -9,7 +10,7 @@ import 'fixtures/seed_data.dart';
 void main() {
   group('B. Source of Truth', () {
     late AppDatabase db;
-    setUp(() => db = AppDatabase.forTesting());
+    setUp(() => db = createInMemoryTestDatabase());
     tearDown(() => db.close());
 
     test('MasteryRepository has no generic write method — recomputeFrom is '
@@ -70,7 +71,7 @@ void main() {
 
   group('C. Append-only enforcement', () {
     late AppDatabase db;
-    setUp(() => db = AppDatabase.forTesting());
+    setUp(() => db = createInMemoryTestDatabase());
     tearDown(() => db.close());
 
     test('EventRepository exposes no delete method (structural check)', () {
