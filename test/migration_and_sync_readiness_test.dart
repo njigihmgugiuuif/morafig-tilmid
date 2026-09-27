@@ -2,12 +2,13 @@ import 'package:test/test.dart';
 import 'package:drift/drift.dart';
 
 import 'package:student_app/database/app_database.dart';
+import 'package:student_app/database/testing/in_memory_database.dart';
 
 void main() {
   group('F. Migration', () {
     test('a brand-new in-memory database opens at schemaVersion 1 without '
         'error', () async {
-      final db = AppDatabase.forTesting();
+      final db = createInMemoryTestDatabase();
       final version =
           await db.customSelect('PRAGMA user_version;').getSingle();
       expect(version.data['user_version'], equals(1));
@@ -16,7 +17,7 @@ void main() {
 
     test('onCreate builds every table (no table left out of createAll())',
         () async {
-      final db = AppDatabase.forTesting();
+      final db = createInMemoryTestDatabase();
       for (final table in db.allTables) {
         await db.select(table).get(); // throws if the table wasn't created
       }
@@ -39,7 +40,7 @@ void main() {
 
   group('G. Sync readiness (fields only, no network sync implemented)', () {
     late AppDatabase db;
-    setUp(() => db = AppDatabase.forTesting());
+    setUp(() => db = createInMemoryTestDatabase());
     tearDown(() => db.close());
 
     test('every table has id (UUID-shaped text), createdAt, updatedAt, '
