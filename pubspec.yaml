@@ -14,7 +14,7 @@ dependencies:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
-  drift: ^2.16.0
+  drift: 2.34.4
   sqlite3: ^2.4.0
   sqlite3_flutter_libs: ^0.5.20
   path_provider: ^2.1.2
@@ -25,7 +25,7 @@ dependencies:
   intl: ^0.19.0
 
 dev_dependencies:
-  drift_dev: ^2.16.0
+  drift_dev: 2.34.4
   build_runner: ^2.4.9
   test: ^1.25.2
   flutter_test:
