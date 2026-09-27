@@ -2,6 +2,7 @@ import 'package:test/test.dart';
 import 'package:drift/drift.dart' as drift;
 
 import 'package:student_app/database/app_database.dart';
+import 'package:student_app/database/testing/in_memory_database.dart';
 import 'package:student_app/export_import/export_import_service.dart';
 import 'fixtures/seed_data.dart';
 
@@ -11,7 +12,7 @@ void main() {
     late ExportImportService sourceService;
 
     setUp(() {
-      source = AppDatabase.forTesting();
+      source = createInMemoryTestDatabase();
       sourceService = ExportImportService(source);
     });
     tearDown(() => source.close());
@@ -21,7 +22,7 @@ void main() {
       final seed = await seedMinimalCurriculum(source);
       final json = await sourceService.exportAll();
 
-      final target = AppDatabase.forTesting();
+      final target = createInMemoryTestDatabase();
       final targetService = ExportImportService(target);
       await targetService.importAll(json);
 
@@ -45,7 +46,7 @@ void main() {
       final badJson =
           '{"exportedAt":"2026-01-01T00:00:00Z","schemaVersion":999,"tables":{}}';
 
-      final target = AppDatabase.forTesting();
+      final target = createInMemoryTestDatabase();
       final targetService = ExportImportService(target);
 
       expect(
@@ -93,7 +94,7 @@ void main() {
           );
       final json = await sourceService.exportAll();
 
-      final target = AppDatabase.forTesting();
+      final target = createInMemoryTestDatabase();
       final targetService = ExportImportService(target);
       // Pre-seed target with a DIFFERENT row for the same id to prove it's
       // not overwritten — direct insert bypasses the repository on purpose,
