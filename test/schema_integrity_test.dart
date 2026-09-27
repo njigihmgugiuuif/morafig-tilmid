@@ -2,12 +2,13 @@ import 'package:test/test.dart';
 import 'package:drift/drift.dart';
 
 import 'package:student_app/database/app_database.dart';
+import 'package:student_app/database/testing/in_memory_database.dart';
 
 void main() {
   group('A. Schema integrity', () {
     late AppDatabase db;
 
-    setUp(() => db = AppDatabase.forTesting());
+    setUp(() => db = createInMemoryTestDatabase());
     tearDown(() => db.close());
 
     test('all 36 tables exist and are queryable', () async {
