@@ -1,0 +1,59 @@
+name: Full build diagnosis
+
+on:
+  workflow_dispatch:
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Versions
+        run: flutter --version 2>&1 | tee versions.log
+
+      - name: Install dependencies
+        continue-on-error: true
+        run: |
+          flutter pub add intl:^0.20.3 2>&1 | tee pub_get.log
+          flutter pub get 2>&1 | tee -a pub_get.log
+
+      - name: Generate drift code
+        continue-on-error: true
+        run: dart run build_runner build --delete-conflicting-outputs 2>&1 | tee build_runner.log
+
+      - name: Analyze
+        continue-on-error: true
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | tee analyze.log
+
+      - name: Build web
+        continue-on-error: true
+        run: flutter build web --release 2>&1 | tee build_web.log
+
+      - name: Summary of all problems
+        if: always()
+        run: |
+          {
+            echo "## Generated files in repo"
+            git ls-files '*.g.dart' | head -20 || true
+            echo "## Generated files after build_runner"
+            find lib -name '*.g.dart' | head -20 || true
+            echo "## web/ assets"
+            ls web 2>&1 | head -30
+            for f in pub_get build_runner analyze build_web; do
+              echo "## $f: unique errors"
+              grep -hE "Error:|error •|Could not|Failed|version solving" $f.log 2>/dev/null | sort | uniq -c | sort -rn | head -40
+              echo "## $f: last 25 lines"
+              tail -25 $f.log 2>/dev/null
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: logs
+          path: "*.log"
