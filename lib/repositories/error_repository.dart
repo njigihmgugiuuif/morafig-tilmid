@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 
 import '../database/app_database.dart';
+import '../database/tables/derived_state_tables.dart';
 import '../engines/error_engine.dart';
 import 'append_only_repository.dart';
 
