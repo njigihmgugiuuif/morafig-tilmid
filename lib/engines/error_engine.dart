@@ -26,7 +26,6 @@ import 'dart:math' as math;
 /// student data, and are exposed as constructor parameters (backed, in a
 /// future integration pass, by ThresholdRegistryEntries rows) rather than
 /// hardcoded so they can be tuned without touching this file.
-library error_engine;
 
 enum ErrorKind { careless, conceptual, missingPrerequisite }
 
