@@ -1,13 +1,13 @@
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
-const _uuidGen = Uuid();
+const uuidGen = Uuid();
 
 /// Every table in this Foundation shares these four columns. Drift has no
 /// "abstract table with inherited columns" shortcut across files without a
 /// mixin, so we use a mixin instead of copy-pasting four lines 36 times.
 mixin AuditColumns on Table {
-  TextColumn get id => text().clientDefault(() => _uuidGen.v4())();
+  TextColumn get id => text().clientDefault(() => uuidGen.v4())();
   DateTimeColumn get createdAt =>
       dateTime().clientDefault(() => DateTime.now().toUtc())();
   DateTimeColumn get updatedAt =>
@@ -50,6 +50,7 @@ class EducationLevels extends Table with AuditColumns {
   Set<Column> get primaryKey => {id};
 }
 
+@DataClassName('StudyStream')
 class Streams extends Table with AuditColumns {
   TextColumn get name => text()();
   TextColumn get educationLevelId => text().references(EducationLevels, #id)();
