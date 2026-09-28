@@ -11,21 +11,29 @@ jobs:
       - name: Print needed files
         run: |
           set +e
-          echo "=== 1. _uuidGen definition and use"
-          grep -rn "_uuidGen" lib --include=*.dart | grep -v "\.g\.dart" | head -20
-          echo "=== 2. table classes"
-          grep -rn -E -B1 -A6 "^class (Streams|Availabilities) " lib/database/tables
-          echo "=== 3. append_only_repository.dart"
-          head -60 lib/repositories/append_only_repository.dart
-          echo "=== 4. event_repository.dart"
-          head -30 lib/repositories/event_repository.dart
-          echo "=== 5. reality_layer_domain.dart"
-          sed -n 1,20p lib/domain/reality_layer_domain.dart
-          echo "..."
-          sed -n 70,105p lib/domain/reality_layer_domain.dart
-          echo "=== 6. dashboard_screen.dart"
-          sed -n 1,15p lib/ui/screens/dashboard_screen.dart
-          echo "..."
-          sed -n 35,55p lib/ui/screens/dashboard_screen.dart
-          echo "=== 7. deploy workflow"
-          cat .github/workflows/unzip-and-deploy.yml
+          {
+            echo "## 1. _uuidGen"
+            echo '```'
+            grep -rn "_uuidGen" lib --include=*.dart | grep -v "\.g\.dart" | head -20
+            echo '```'
+            echo "## 2. tables Streams / Availabilities"
+            echo '```'
+            grep -rn -A8 -E "^class (Streams|Availabilities) " lib/database/tables
+            echo '```'
+            echo "## 3. append_only_repository.dart"
+            echo '```'
+            head -60 lib/repositories/append_only_repository.dart
+            echo '```'
+            echo "## 4. repositories imports"
+            echo '```'
+            for f in event_repository error_repository recovery_repository explanation_and_override_repositories; do
+              echo "--- $f"; head -14 lib/repositories/$f.dart
+            done
+            echo '```'
+            echo "## 5. reality_layer_domain.dart"
+            echo '```'
+            sed -n 1,22p lib/domain/reality_layer_domain.dart
+            echo "..."
+            sed -n 60,90p lib/domain/reality_layer_domain.dart
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
