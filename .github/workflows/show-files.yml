@@ -1,0 +1,31 @@
+name: Show files
+
+on:
+  workflow_dispatch:
+
+jobs:
+  show:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Print needed files
+        run: |
+          set +e
+          echo "=== 1. _uuidGen definition and use"
+          grep -rn "_uuidGen" lib --include=*.dart | grep -v "\.g\.dart" | head -20
+          echo "=== 2. table classes"
+          grep -rn -E -B1 -A6 "^class (Streams|Availabilities) " lib/database/tables
+          echo "=== 3. append_only_repository.dart"
+          head -60 lib/repositories/append_only_repository.dart
+          echo "=== 4. event_repository.dart"
+          head -30 lib/repositories/event_repository.dart
+          echo "=== 5. reality_layer_domain.dart"
+          sed -n 1,20p lib/domain/reality_layer_domain.dart
+          echo "..."
+          sed -n 70,105p lib/domain/reality_layer_domain.dart
+          echo "=== 6. dashboard_screen.dart"
+          sed -n 1,15p lib/ui/screens/dashboard_screen.dart
+          echo "..."
+          sed -n 35,55p lib/ui/screens/dashboard_screen.dart
+          echo "=== 7. deploy workflow"
+          cat .github/workflows/unzip-and-deploy.yml
