@@ -25,7 +25,6 @@ import 'dart:math' as math;
 /// UNVERIFIED for the same reason. Every formula below should be
 /// confirmed against the reference source above once a real toolchain is
 /// available, before this engine is wired into recomputation.
-library memory_engine;
 
 /// A review grade, matching the FSRS 4-point scale.
 enum MemoryGrade { forgot, hard, good, easy }
