@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  TODO: replace REPLACE_WITH_YOUR_PAGES_URL below with your actual
+  GitHub Pages URL once known (e.g. https://username.github.io/repo-name/).
+  Cannot be filled in automatically from this sandbox (see index.html).
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>REPLACE_WITH_YOUR_PAGES_URL</loc>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+</urlset>
