@@ -17,7 +17,6 @@ import 'dart:math' as math;
 /// HEURISTIC values, exposed as constructor parameters rather than
 /// hardcoded, same status as error_engine.dart's weights and the Priority
 /// Engine's w1-w6.
-library time_estimation_engine;
 
 enum TimeEstimateBasis { curriculumDefault, observedHistory, hybrid }
 
