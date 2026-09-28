@@ -13,9 +13,6 @@ jobs:
         with:
           channel: stable
 
-      - name: Versions
-        run: flutter --version 2>&1 | tee versions.log
-
       - name: Install dependencies
         continue-on-error: true
         run: |
@@ -38,18 +35,41 @@ jobs:
         if: always()
         run: |
           {
-            echo "## Generated files in repo"
-            git ls-files '*.g.dart' | head -20 || true
-            echo "## Generated files after build_runner"
-            find lib -name '*.g.dart' | head -20 || true
-            echo "## web/ assets"
-            ls web 2>&1 | head -30
-            for f in pub_get build_runner analyze build_web; do
-              echo "## $f: unique errors"
-              grep -hE "Error:|error •|Could not|Failed|version solving" $f.log 2>/dev/null | sort | uniq -c | sort -rn | head -40
-              echo "## $f: last 25 lines"
-              tail -25 $f.log 2>/dev/null
-            done
+            echo "## A. All errors in lib/ (complete, unique)"
+            echo '```'
+            grep -E "error •" analyze.log | grep -E "• lib/" | sed 's/^ *//' | sort -u | head -200
+            echo '```'
+
+            echo "## B. Is drift generating a class named Stream?"
+            echo '```'
+            grep -n "^class Stream " lib/database/app_database.g.dart || echo "no class Stream generated"
+            grep -rn -B3 "class Streams" lib/database/tables || true
+            echo '```'
+
+            echo "## C. lib/ui/app.dart (first 60 lines)"
+            echo '```'
+            sed -n 1,60p lib/ui/app.dart
+            echo '```'
+
+            echo "## D. imports of each repository"
+            echo '```'
+            for f in lib/repositories/*.dart; do echo "--- $f"; head -12 "$f"; done
+            echo '```'
+
+            echo "## E. deploy workflow"
+            echo '```'
+            cat .github/workflows/unzip-and-deploy.yml
+            echo '```'
+
+            echo "## F. build_runner result"
+            echo '```'
+            tail -15 build_runner.log
+            echo '```'
+
+            echo "## G. generated files tracked in repo"
+            echo '```'
+            git ls-files '*.g.dart' | head -20
+            echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v4
