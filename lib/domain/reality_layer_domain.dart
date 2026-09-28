@@ -1,4 +1,4 @@
-import '../database/app_database.dart' show RealityConstraint;
+import '../database/app_database.dart' show RealityConstraint, Availability;
 import '../engines/scheduling_engine.dart' show TimeSlot;
 import '../repositories/availability_repository.dart';
 import '../repositories/reality_and_prerequisite_repositories.dart';
