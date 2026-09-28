@@ -1,0 +1,23 @@
+name: Diagnose web imports
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find native-only imports in lib
+        run: |
+          echo "=== native-only imports in lib ==="
+          grep -rnE "drift/native|package:sqlite3/|dart:io|dart:ffi|sqlite3_flutter_libs" lib || echo "none"
+          echo ""
+          echo "=== who imports connection_native / in_memory_database ==="
+          grep -rnE "connection_native|in_memory_database" lib || echo "none"
+          echo ""
+          echo "=== all pubspec.yaml files ==="
+          find . -name pubspec.yaml -not -path "./.git/*"
