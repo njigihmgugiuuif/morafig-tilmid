@@ -10,7 +10,6 @@ import '../repositories/exam_repository.dart';
 /// unconfirmed number or rule as if it were fact. Everything below reads
 /// only structural, already-in-schema data (ExamType, examDate) — nothing
 /// here asserts a subject-specific Bac fact.
-library long_term_domain;
 
 /// A purely time-based bucket — NOT a judgment about a subject's Bac
 /// importance, only about how far away a given exam date is from `now`.
