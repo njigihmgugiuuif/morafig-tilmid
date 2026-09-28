@@ -28,7 +28,6 @@ import 'workload_engine.dart' show WorkloadClassification;
 /// external spec text defining them was available in this session —
 /// flagged as follow-up to reconcile against
 /// algeria-intelligence-final-spec.md if its definitions differ.
-library recovery_engine;
 
 /// Mirrors domain/enums.dart's RecoveryDecision exactly (name-for-name),
 /// duplicated here rather than imported so this pure-Dart file has zero
