@@ -30,7 +30,6 @@ import 'workload_engine.dart' show WorkloadClassification, WorkloadEngine;
 /// DESIGN NOTE: examProximityDays and the reweight/loosen multipliers
 /// below are INITIAL HEURISTIC values, same status as every other
 /// cross-cutting constant in this codebase.
-library emergency_engine;
 
 enum EmergencyTriggerKind { examProximity, workloadImpossible }
 
