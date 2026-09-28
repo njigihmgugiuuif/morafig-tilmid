@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 
 import '../database/app_database.dart';
+import '../database/tables/audit_tables.dart';
 import 'append_only_repository.dart';
 
 class EventRepository extends AppendOnlyRepository<Events, Event> {
