@@ -1,4 +1,5 @@
 import '../database/app_database.dart';
+import '../database/tables/derived_state_tables.dart';
 import '../engines/recovery_engine.dart';
 import 'append_only_repository.dart';
 
