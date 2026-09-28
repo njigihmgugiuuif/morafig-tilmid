@@ -1,4 +1,4 @@
-import 'package:drift/drift.dart' show OrderingTerm, OrderingMode;
+import 'package:drift/drift.dart' show OrderingTerm, OrderingMode, BooleanExpressionOperators;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
