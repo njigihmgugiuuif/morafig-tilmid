@@ -26,6 +26,9 @@ jobs:
           flutter pub add intl:^0.20.3
           flutter pub get
 
+      - name: Generate drift code
+        run: dart run build_runner build
+
       - name: Build Web
         run: flutter build web --release --base-href "/morafig-tilmid/"
 
