@@ -57,7 +57,20 @@ class _AppBootstrapState extends State<_AppBootstrap> {
   @override
   void initState() {
     super.initState();
-    _future = AppState.bootstrap();
+    // A hard timeout is essential here: without it, any silent hang deep
+    // inside AppState.bootstrap() (e.g. a web-worker/database backend
+    // that never resolves) leaves the loading spinner below spinning
+    // forever with no way for the user — or us, debugging remotely — to
+    // ever see what went wrong. Turning a silent hang into a thrown
+    // exception is what makes the existing snapshot.hasError branch
+    // below actually able to show the real error text on screen.
+    _future = AppState.bootstrap().timeout(
+      const Duration(seconds: 15),
+      onTimeout: () => throw Exception(
+        'انتهت مهلة تشغيل التطبيق بعد 15 ثانية. لم يكتمل إعداد قاعدة '
+        'البيانات أو الحالة العامة في الوقت المتوقع.',
+      ),
+    );
   }
 
   @override
