@@ -26,7 +26,7 @@
   <meta property="og:image" content="icons/Icon-512.png">
 
   <!-- iOS "Add to Home Screen" support -->
-  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="مرافق التلميذ">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
@@ -35,6 +35,30 @@
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
+  <!-- One-time self-cleaning step (added to fix a stale-service-worker
+       issue from earlier failed deploy attempts, 2026-09-29). Runs on
+       every page load and clears any existing service worker + Cache
+       Storage entries for this origin before Flutter's own bootstrap
+       script gets a chance to re-register a correct one on the NEXT
+       load. Safe to remove later once confirmed no visitor is still
+       carrying a stale worker. -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function (registrations) {
+        for (const registration of registrations) {
+          registration.unregister();
+        }
+      });
+    }
+    if (window.caches) {
+      caches.keys().then(function (names) {
+        for (const name of names) {
+          caches.delete(name);
+        }
+      });
+    }
+  </script>
+
   <!-- First-paint loading indicator shown before Flutter's engine takes
        over — avoids a completely blank white screen on slower
        connections/devices, one of the "beginner-invisible" edge cases. -->
