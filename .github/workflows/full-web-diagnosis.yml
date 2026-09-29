@@ -1,0 +1,73 @@
+name: Full web diagnosis
+
+on:
+  workflow_dispatch:
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: pages
+
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          path: src
+
+      - name: Diagnose
+        run: |
+          {
+            echo "## A. Files in gh-pages branch (root)"
+            echo '```'
+            find pages -maxdepth 1 -type f | sort
+            echo '```'
+
+            echo "## B. Key web asset sizes in gh-pages"
+            echo '```'
+            for f in index.html main.dart.js flutter_bootstrap.js flutter_service_worker.js sqlite3.wasm drift_worker.js; do
+              if [ -f "pages/$f" ]; then
+                printf "%-30s %s bytes\n" "$f" "$(stat -c%s "pages/$f")"
+              else
+                printf "%-30s MISSING\n" "$f"
+              fi
+            done
+            echo '```'
+
+            echo "## C. HTTP status for each on the live site"
+            echo '```'
+            BASE="https://njigihmgugiuuif.github.io/morafig-tilmid"
+            for f in "" index.html main.dart.js flutter_bootstrap.js flutter_service_worker.js sqlite3.wasm drift_worker.js; do
+              url="$BASE/$f"
+              code=$(curl -s -o /dev/null -w "%{http_code}" "$url")
+              printf "%-70s -> %s\n" "$url" "$code"
+            done
+            echo '```'
+
+            echo "## D. web/index.html source (from main branch)"
+            echo '```'
+            cat src/web/index.html 2>/dev/null || echo "web/index.html not found in main"
+            echo '```'
+
+            echo "## E. Does web/ in main contain sqlite3.wasm / drift_worker.js?"
+            echo '```'
+            find src/web -maxdepth 1 -type f | sort
+            echo '```'
+
+            echo "## F. connection_web.dart (current source)"
+            echo '```'
+            cat src/lib/database/connection/connection_web.dart 2>/dev/null || echo "not found"
+            echo '```'
+
+            echo "## G. pubspec.yaml assets section"
+            echo '```'
+            grep -A20 "^flutter:" src/pubspec.yaml || true
+            echo '```'
+
+            echo "## H. gh-pages last commit"
+            echo '```'
+            cd pages && git log -1 --format="%H %ci %s"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
