@@ -29,6 +29,12 @@ jobs:
       - name: Generate drift code
         run: dart run build_runner build
 
+      - name: Download sqlite3.wasm and drift_worker.js
+        run: |
+          curl -L -o web/sqlite3.wasm https://github.com/simolus3/sqlite3.dart/releases/download/sqlite3-3.6.0/sqlite3.wasm
+          curl -L -o web/drift_worker.js https://github.com/simolus3/drift/releases/download/drift-2.35.0/drift_worker.js
+          ls -la web/sqlite3.wasm web/drift_worker.js
+
       - name: Build Web
         run: flutter build web --release --base-href "/morafig-tilmid/"
 
