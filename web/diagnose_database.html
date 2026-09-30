@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>تشخيص قاعدة البيانات — DB-DIAG-001</title>
+<style>
+  body{font-family:sans-serif;padding:12px;line-height:1.7;font-size:15px;background:#fafafa;color:#111}
+  h2{margin-bottom:4px}
+  .id{color:#666;font-size:13px;margin-bottom:16px}
+  .step{border:1px solid #ddd;border-radius:8px;padding:10px 12px;margin-bottom:8px;background:#fff}
+  .ok{border-right:5px solid #2e7d32}
+  .fail{border-right:5px solid #c62828}
+  .pending{border-right:5px solid #999}
+  .inconclusive{border-right:5px solid #f9a825}
+  .badge{font-weight:bold}
+  .badge.ok{color:#2e7d32;border:none}
+  .badge.fail{color:#c62828;border:none}
+  .badge.pending{color:#666;border:none}
+  .badge.inconclusive{color:#b8860b;border:none}
+  .detail{font-size:13px;color:#444;white-space:pre-wrap;word-break:break-word;margin-top:4px}
+  textarea{width:100%;height:160px;font-family:monospace;font-size:12px}
+  button{padding:10px 16px;border-radius:8px;border:1px solid #333;background:#222;color:#fff;font-size:15px;margin-top:12px}
+  section{margin-bottom:22px}
+  h3{border-bottom:2px solid #ddd;padding-bottom:4px}
+</style>
+</head>
+<body>
+
+<h2>تشخيص قاعدة البيانات — مرافق التلميذ</h2>
+<div class="id">DB-DIAG-001 &nbsp;|&nbsp; وقت الفحص: <span id="ts"></span></div>
+
+<section>
+  <h3>1. النسخة المنشورة</h3>
+  <div id="sec-version"></div>
+</section>
+
+<section>
+  <h3>2. بيئة المتصفح</h3>
+  <div id="sec-env"></div>
+</section>
+
+<section>
+  <h3>3. اختبار IndexedDB (قاعدة مؤقتة منفصلة، تُحذف تلقائيًا)</h3>
+  <div id="sec-idb"></div>
+</section>
+
+<section>
+  <h3>4. ملفات sqlite3.wasm و drift_worker.js</h3>
+  <div id="sec-files"></div>
+</section>
+
+<section>
+  <h3>5. اتصال Drift الحقيقي</h3>
+  <div class="step inconclusive">
+    <div class="badge inconclusive">غير قابل للتنفيذ من هذه الصفحة</div>
+    <div class="detail">
+      هذا الاختبار يمر عبر كود Dart المترجَم (connection_web.dart وAppDatabase)،
+      ولا يمكن تشغيله من صفحة HTML مستقلة دون تزييفه. تم بناء صفحة Flutter
+      منفصلة لهذا الغرض تحديدًا، تفتح على المسار /diagnose/ بجانب هذه الصفحة:
+      <br>
+      <a id="link-flutter-diag" href="diagnose/">فتح تشخيص اتصال Drift الحقيقي</a>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h3>6. أخطاء JavaScript العامة الملتقطة أثناء هذا الفحص</h3>
+  <div id="sec-errors"><div class="step pending"><div class="badge pending">لا توجد أخطاء عامة حتى الآن</div></div></div>
+</section>
+
+<button id="copyBtn">نسخ تقرير التشخيص</button>
+<textarea id="reportBox" readonly style="margin-top:10px;display:none"></textarea>
+
+<script>
+const REPORT = { id: 'DB-DIAG-001', startedAt: new Date().toISOString(), sections: {} };
+document.getElementById('ts').textContent = REPORT.startedAt;
+
+const globalErrors = [];
+window.addEventListener('error', (e) => {
+  globalErrors.push('error: ' + e.message + ' @ ' + e.filename + ':' + e.lineno);
+  renderGlobalErrors();
+});
+window.addEventListener('unhandledrejection', (e) => {
+  globalErrors.push('unhandledrejection: ' + e.reason);
+  renderGlobalErrors();
+});
+function renderGlobalErrors() {
+  const box = document.getElementById('sec-errors');
+  if (globalErrors.length === 0) return;
+  box.innerHTML = globalErrors.map(m =>
+    '<div class="step fail"><div class="badge fail">خطأ عام</div><div class="detail">' +
+    escapeHtml(m) + '</div></div>').join('');
+  REPORT.sections.globalErrors = globalErrors;
+}
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+
+function renderStep(container, cls, badge, detail) {
+  const div = document.createElement('div');
+  div.className = 'step ' + cls;
+  div.innerHTML = '<div class="badge ' + cls + '">' + escapeHtml(badge) + '</div>' +
+    (detail ? '<div class="detail">' + escapeHtml(detail) + '</div>' : '');
+  container.appendChild(div);
+  return { badge, detail };
+}
+
+async function run() {
+  // ---- 1. Version / deployed files reachability ----
+  const secVersion = document.getElementById('sec-version');
+  const versionResults = [];
+  const filesToCheck = ['index.html', 'main.dart.js', 'sqlite3.wasm', 'drift_worker.js', 'diagnose/index.html'];
+  for (const f of filesToCheck) {
+    try {
+      const t0 = performance.now();
+      const res = await fetch(f, { cache: 'no-store' });
+      const ms = Math.round(performance.now() - t0);
+      const ok = res.ok;
+      renderStep(secVersion, ok ? 'ok' : 'fail', f + ': حالة ' + res.status + ' (' + ms + 'ms)',
+        'نجاح HTTP فقط — لا يثبت أن التطبيق يستخدم هذه النسخة فعليًا في وقت التشغيل.');
+      versionResults.push({ file: f, status: res.status, ms });
+    } catch (e) {
+      renderStep(secVersion, 'fail', f + ': فشل الجلب', String(e));
+      versionResults.push({ file: f, error: String(e) });
+    }
+  }
+  renderStep(secVersion, 'pending', 'عنوان الصفحة الحالي', window.location.href);
+  REPORT.sections.version = versionResults;
+
+  // ---- 2. Browser environment ----
+  const secEnv = document.getElementById('sec-env');
+  const env = {
+    indexedDB: !!window.indexedDB,
+    WebAssembly: typeof WebAssembly !== 'undefined',
+    Worker: typeof Worker !== 'undefined',
+    SharedWorker: typeof SharedWorker !== 'undefined',
+    crossOriginIsolated: !!window.crossOriginIsolated,
+    isSecureContext: !!window.isSecureContext,
+    storageEstimateSupported: !!(navigator.storage && navigator.storage.estimate),
+    userAgent: navigator.userAgent,
+  };
+  for (const k of ['indexedDB','WebAssembly','Worker','SharedWorker','crossOriginIsolated','isSecureContext','storageEstimateSupported']) {
+    renderStep(secEnv, env[k] ? 'ok' : 'fail', k + ': ' + env[k]);
+  }
+  renderStep(secEnv, 'pending', 'navigator.userAgent', env.userAgent);
+  if (env.storageEstimateSupported) {
+    try {
+      const est = await navigator.storage.estimate();
+      renderStep(secEnv, 'pending', 'مساحة التخزين', 'مستخدَم: ' + est.usage + ' / حصة: ' + est.quota);
+      env.storageEstimate = est;
+    } catch (e) {
+      renderStep(secEnv, 'fail', 'فشل قراءة مساحة التخزين', String(e));
+    }
+  }
+  REPORT.sections.environment = env;
+
+  // ---- 3. IndexedDB real read/write/delete test (isolated temp DB) ----
+  const secIdb = document.getElementById('sec-idb');
+  const idbResult = { phase: 'لم يبدأ' };
+  await new Promise((resolve) => {
+    if (!window.indexedDB) {
+      renderStep(secIdb, 'fail', 'IndexedDB غير مدعوم', 'تخطي الاختبار');
+      idbResult.phase = 'IndexedDB غير مدعوم';
+      REPORT.sections.indexedDb = idbResult;
+      return resolve();
+    }
+    const dbName = 'diag_probe_' + Date.now();
+    idbResult.phase = 'فتح قاعدة الاختبار';
+    let req;
+    try {
+      req = indexedDB.open(dbName, 1);
+    } catch (e) {
+      renderStep(secIdb, 'fail', 'استثناء عند indexedDB.open', String(e));
+      idbResult.phase = 'استثناء عند الفتح'; idbResult.error = String(e);
+      REPORT.sections.indexedDb = idbResult;
+      return resolve();
+    }
+    req.onupgradeneeded = () => {
+      try { req.result.createObjectStore('probe', { keyPath: 'id' }); }
+      catch (e) { idbResult.upgradeError = String(e); }
+    };
+    req.onerror = () => {
+      const err = req.error;
+      const name = err ? err.name : 'UnknownError';
+      renderStep(secIdb, 'fail', 'فشل فتح القاعدة: ' + name, String(err));
+      idbResult.phase = 'فشل الفتح'; idbResult.errorName = name; idbResult.error = String(err);
+      REPORT.sections.indexedDb = idbResult;
+      resolve();
+    };
+    req.onsuccess = () => {
+      const db = req.result;
+      idbResult.phase = 'كتابة سجل';
+      try {
+        const txw = db.transaction('probe', 'readwrite');
+        txw.objectStore('probe').put({ id: 1, note: 'diagnostic' });
+        txw.oncomplete = () => {
+          renderStep(secIdb, 'ok', 'الكتابة نجحت');
+          idbResult.phase = 'قراءة سجل';
+          const txr = db.transaction('probe', 'readonly');
+          const getReq = txr.objectStore('probe').get(1);
+          getReq.onsuccess = () => {
+            const found = !!getReq.result;
+            renderStep(secIdb, found ? 'ok' : 'fail', 'القراءة: ' + (found ? 'وُجد السجل' : 'لم يُوجد السجل'));
+            idbResult.phase = 'حذف السجل';
+            const txd = db.transaction('probe', 'readwrite');
+            txd.objectStore('probe').delete(1);
+            txd.oncomplete = () => {
+              renderStep(secIdb, 'ok', 'حذف السجل نجح');
+              db.close();
+              indexedDB.deleteDatabase(dbName);
+              idbResult.phase = 'مكتمل بنجاح';
+              REPORT.sections.indexedDb = idbResult;
+              resolve();
+            };
+            txd.onerror = () => {
+              renderStep(secIdb, 'fail', 'فشل حذف السجل', String(txd.error));
+              idbResult.phase = 'فشل الحذف'; idbResult.error = String(txd.error);
+              db.close(); indexedDB.deleteDatabase(dbName);
+              REPORT.sections.indexedDb = idbResult;
+              resolve();
+            };
+          };
+          getReq.onerror = () => {
+            renderStep(secIdb, 'fail', 'فشل القراءة', String(getReq.error));
+            idbResult.phase = 'فشل القراءة'; idbResult.error = String(getReq.error);
+            db.close(); indexedDB.deleteDatabase(dbName);
+            REPORT.sections.indexedDb = idbResult;
+            resolve();
+          };
+        };
+        txw.onerror = () => {
+          const err = txw.error;
+          const name = err ? err.name : 'UnknownError';
+          renderStep(secIdb, 'fail', 'فشل الكتابة: ' + name, String(err));
+          idbResult.phase = 'فشل الكتابة'; idbResult.errorName = name; idbResult.error = String(err);
+          db.close(); indexedDB.deleteDatabase(dbName);
+          REPORT.sections.indexedDb = idbResult;
+          resolve();
+        };
+      } catch (e) {
+        renderStep(secIdb, 'fail', 'استثناء أثناء الكتابة', String(e));
+        idbResult.phase = 'استثناء'; idbResult.error = String(e);
+        try { db.close(); indexedDB.deleteDatabase(dbName); } catch (_) {}
+        REPORT.sections.indexedDb = idbResult;
+        resolve();
+      }
+    };
+    // Safety timeout: never hang this diagnostic itself.
+    setTimeout(() => {
+      if (idbResult.phase !== 'مكتمل بنجاح' && !idbResult.error) {
+        renderStep(secIdb, 'fail', 'انتهت المهلة (8 ثوانٍ) في مرحلة: ' + idbResult.phase);
+        idbResult.timedOutAt = idbResult.phase;
+        REPORT.sections.indexedDb = idbResult;
+        resolve();
+      }
+    }, 8000);
+  });
+
+  // ---- 4. sqlite3.wasm / drift_worker.js: fetch + real parse/instantiate ----
+  const secFiles = document.getElementById('sec-files');
+  const filesResult = {};
+
+  try {
+    const res = await fetch('sqlite3.wasm', { cache: 'no-store' });
+    const buf = await res.arrayBuffer();
+    renderStep(secFiles, res.ok ? 'ok' : 'fail',
+      'sqlite3.wasm: HTTP ' + res.status + '، ' + buf.byteLength + ' بايت');
+    filesResult.wasmFetch = { status: res.status, bytes: buf.byteLength };
+    try {
+      // Actual execution proof: try to compile the module (not just fetch it).
+      await WebAssembly.compile(buf);
+      renderStep(secFiles, 'ok', 'sqlite3.wasm: تم تجميعه (compile) بنجاح فعليًا كوحدة WebAssembly صالحة');
+      filesResult.wasmCompiled = true;
+    } catch (e) {
+      renderStep(secFiles, 'fail', 'sqlite3.wasm: فشل التجميع الفعلي', String(e));
+      filesResult.wasmCompiled = false;
+      filesResult.wasmCompileError = String(e);
+    }
+  } catch (e) {
+    renderStep(secFiles, 'fail', 'فشل جلب sqlite3.wasm', String(e));
+    filesResult.wasmFetch = { error: String(e) };
+  }
+
+  try {
+    const res = await fetch('drift_worker.js', { cache: 'no-store' });
+    const text = await res.text();
+    renderStep(secFiles, res.ok ? 'ok' : 'fail',
+      'drift_worker.js: HTTP ' + res.status + '، ' + text.length + ' حرفًا');
+    filesResult.workerFetch = { status: res.status, chars: text.length };
+    renderStep(secFiles, 'inconclusive',
+      'تشغيل drift_worker.js فعليًا كـ Worker وانتظار رد',
+      'لا يمكن الحكم على هذا بنجاح/فشل من هنا: عامل drift لا يرسل أي رسالة ' +
+      'من تلقاء نفسه دون بروتوكول مصافحة داخلي خاص بـ drift — فعدم الرد هنا ' +
+      'ليس دليلًا حاسمًا على عطل. الاختبار الحاسم هو القسم 5 أعلاه (تشخيص ' +
+      'Flutter المنفصل)، الذي يمر عبر نفس البروتوكول الحقيقي الذي يستخدمه التطبيق.');
+  } catch (e) {
+    renderStep(secFiles, 'fail', 'فشل جلب drift_worker.js', String(e));
+    filesResult.workerFetch = { error: String(e) };
+  }
+  REPORT.sections.files = filesResult;
+
+  renderGlobalErrors();
+}
+
+run();
+
+document.getElementById('copyBtn').addEventListener('click', async () => {
+  const text = 'تقرير تشخيص قاعدة البيانات — DB-DIAG-001\n' +
+    'الوقت: ' + REPORT.startedAt + '\n' +
+    'الرابط: ' + window.location.href + '\n\n' +
+    JSON.stringify(REPORT, null, 2);
+  const box = document.getElementById('reportBox');
+  box.style.display = 'block';
+  box.value = text;
+  try {
+    await navigator.clipboard.writeText(text);
+    alert('تم نسخ التقرير. يمكنك أيضًا تحديد النص يدويًا من المربع أدناه إن لم يعمل النسخ التلقائي.');
+  } catch (e) {
+    box.select();
+    try { document.execCommand('copy'); alert('تم النسخ (طريقة بديلة).'); }
+    catch (e2) { alert('تعذّر النسخ التلقائي — انسخ النص يدويًا من المربع الظاهر أسفل الصفحة.'); }
+  }
+});
+</script>
+</body>
+</html>
