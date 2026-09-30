@@ -38,6 +38,14 @@ jobs:
       - name: Build Web
         run: flutter build web --release --base-href "/morafig-tilmid/"
 
+      - name: Build diagnostic page (separate entrypoint, does not affect main app)
+        run: |
+          flutter build web --release -t lib/main_diagnose.dart \
+            --base-href "/morafig-tilmid/diagnose/" \
+            --output build/web_diagnose
+          mkdir -p build/web/diagnose
+          cp -r build/web_diagnose/* build/web/diagnose/
+
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
