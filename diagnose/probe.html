@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>تشخيص مباشر</title>
+</head>
+<body style="font-family:sans-serif;padding:16px;line-height:1.9;font-size:16px;">
+  <h2>تشخيص مباشر لصفحة الويب</h2>
+  <div id="log">جارٍ الفحص...</div>
+
+  <script>
+    const box = document.getElementById('log');
+    box.innerHTML = '';
+    function log(msg, ok) {
+      const p = document.createElement('p');
+      const prefix = ok === undefined ? '• ' : (ok ? '✅ ' : '❌ ');
+      p.textContent = prefix + msg;
+      p.style.margin = '4px 0';
+      box.appendChild(p);
+    }
+
+    (async () => {
+      // 1. Service worker registrations currently active for this site.
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        log('عدد Service Workers المسجّلة الآن: ' + regs.length);
+        for (const r of regs) {
+          log('نطاقه: ' + r.scope + ' — الملف النشط: ' +
+            (r.active ? r.active.scriptURL : 'لا يوجد'));
+        }
+      } else {
+        log('المتصفح لا يدعم Service Worker إطلاقًا');
+      }
+
+      // 2. Cache Storage entries.
+      if (window.caches) {
+        const names = await caches.keys();
+        log('عدد ذاكرات Cache المخزّنة: ' + names.length);
+        for (const n of names) log('  - ' + n);
+      }
+
+      // 3. Is the deployed index.html the NEW one (has our cleanup script)?
+      try {
+        const res = await fetch('index.html', { cache: 'no-store' });
+        const text = await res.text();
+        const hasMarker = text.includes('One-time self-cleaning step');
+        log('طلب index.html من الخادم: حالة ' + res.status, res.ok);
+        log('هل يحتوي على كود التنظيف الجديد؟ ' + (hasMarker ? 'نعم' : 'لا'), hasMarker);
+      } catch (e) {
+        log('فشل جلب index.html: ' + e, false);
+      }
+
+      // 4. sqlite3.wasm reachable?
+      try {
+        const t0 = performance.now();
+        const res = await fetch('sqlite3.wasm', { cache: 'no-store' });
+        const buf = await res.arrayBuffer();
+        log('sqlite3.wasm: حالة ' + res.status + '، الحجم ' + buf.byteLength +
+          ' بايت، خلال ' + Math.round(performance.now() - t0) + 'ms', res.ok);
+      } catch (e) {
+        log('فشل جلب sqlite3.wasm: ' + e, false);
+      }
+
+      // 5. drift_worker.js reachable?
+      let workerOk = false;
+      try {
+        const res = await fetch('drift_worker.js', { cache: 'no-store' });
+        const text = await res.text();
+        log('drift_worker.js: حالة ' + res.status + '، الحجم ' + text.length + ' حرفًا', res.ok);
+        workerOk = res.ok;
+      } catch (e) {
+        log('فشل جلب drift_worker.js: ' + e, false);
+      }
+
+      // 6. Actually spawn the worker and see if it ever responds.
+      if (workerOk) {
+        try {
+          const worker = new Worker('drift_worker.js');
+          let responded = false;
+          log('تم إنشاء Worker من drift_worker.js، بانتظار رده حتى 6 ثوانٍ...');
+          const timer = setTimeout(() => {
+            if (!responded) log('لم يرسل العامل (Worker) أي رد خلال 6 ثوانٍ من تشغيله', false);
+          }, 6000);
+          worker.onmessage = (e) => {
+            responded = true;
+            clearTimeout(timer);
+            log('العامل استجاب: ' + JSON.stringify(e.data).slice(0, 200), true);
+          };
+          worker.onerror = (e) => {
+            responded = true;
+            clearTimeout(timer);
+            log('خطأ داخل العامل: ' + e.message + ' في ' + e.filename + ':' + e.lineno, false);
+          };
+        } catch (e) {
+          log('فشل إنشاء Worker: ' + e, false);
+        }
+      }
+
+      // 7. Environment facts relevant to WASM/worker behavior.
+      log('crossOriginIsolated: ' + window.crossOriginIsolated);
+      log('عنوان الصفحة الحالي: ' + window.location.href);
+      log('User agent: ' + navigator.userAgent);
+    })();
+  </script>
+</body>
+</html>
