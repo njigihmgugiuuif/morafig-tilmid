@@ -53,10 +53,19 @@ class ExportImportService {
 
     final tables = bundle['tables'] as Map<String, List<Map<String, dynamic>>>;
 
+    // Export RAW rows (SQL column names + stored values), not
+    // `DataClass.toJson()`: toJson() uses camelCase Dart names and
+    // serializes DateTime differently, so the import side (which reads
+    // `updated_at` and feeds the map to `table.map(...)`, both of which
+    // expect SQL column names and raw stored values) could never read it
+    // back. Confirmed by the CI failure: "Row in academic_years is
+    // missing id or updated_at".
     for (final table in _db.allTables) {
-      final rows = await _db.select(table).get();
+      final rows = await _db
+          .customSelect('SELECT * FROM ${table.actualTableName}')
+          .get();
       tables[table.actualTableName] =
-          rows.map((r) => (r as dynamic).toJson()).toList().cast<Map<String, dynamic>>();
+          rows.map((r) => Map<String, dynamic>.from(r.data)).toList();
     }
 
     return jsonEncode(bundle);
@@ -139,7 +148,7 @@ class ExportImportService {
 
   Future<void> _mergeMutableRow(TableInfo table, Map<String, dynamic> row) async {
     final id = row['id'] as String?;
-    final incomingUpdatedAt = row['updated_at'] as String?;
+    final incomingUpdatedAt = _epochSeconds(row['updated_at']);
     if (id == null || incomingUpdatedAt == null) {
       throw ImportValidationException(
           'Row in ${table.actualTableName} is missing id or updated_at.');
@@ -158,14 +167,28 @@ class ExportImportService {
       return;
     }
 
-    final existingUpdatedAt =
-        DateTime.parse(existing.data['updated_at'] as String);
-    final incoming = DateTime.parse(incomingUpdatedAt);
+    final existingUpdatedAt = _epochSeconds(existing.data['updated_at']);
 
-    if (incoming.isAfter(existingUpdatedAt)) {
+    if (existingUpdatedAt == null || incomingUpdatedAt > existingUpdatedAt) {
       await _db.into(table).insertOnConflictUpdate(table.map(row) as Insertable);
     }
     // else: local row is newer or equal — Last-Write-Wins keeps it, import
     // row is discarded for this entity.
+  }
+
+  /// Normalises a stored `updated_at` value to epoch seconds. Drift stores
+  /// DateTime as integer unix seconds by default; ISO-8601 text is also
+  /// accepted so older/hand-written files remain readable.
+  static int? _epochSeconds(Object? v) {
+    if (v == null) return null;
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    if (v is String) {
+      final asInt = int.tryParse(v);
+      if (asInt != null) return asInt;
+      final parsed = DateTime.tryParse(v);
+      return parsed == null ? null : parsed.millisecondsSinceEpoch ~/ 1000;
+    }
+    return null;
   }
 }
