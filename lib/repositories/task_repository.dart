@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:drift/drift.dart';
 
 import '../database/app_database.dart';
@@ -69,7 +71,14 @@ class TaskRepository {
     });
   }
 
-  Future<void> markComplete(Task task) async {
+  /// `understanding` is the student's self-assessment ('good' | 'partial' |
+  /// 'notUnderstood' | 'unknown'); it travels in the TaskCompleted event so
+  /// IntelligenceService can update Mastery/Memory from real evidence.
+  Future<void> markComplete(
+    Task task, {
+    String understanding = 'unknown',
+    int? actualMinutes,
+  }) async {
     await _db.transaction(() async {
       await (_db.update(_db.tasks)..where((t) => t.id.equals(task.id)))
           .write(const TasksCompanion(
@@ -79,7 +88,11 @@ class TaskRepository {
       await EventRepository(_db).insertRow(
         EventsCompanion.insert(
           type: 'TaskCompleted',
-          payloadJson: '{"taskId":"${task.id}"}',
+          payloadJson: jsonEncode({
+            'taskId': task.id,
+            'understanding': understanding,
+            if (actualMinutes != null) 'actualMinutes': actualMinutes,
+          }),
           triggersReplan: true,
         ),
       );
