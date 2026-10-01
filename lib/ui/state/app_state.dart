@@ -48,4 +48,13 @@ class AppState extends ChangeNotifier {
     await prefs.setString(_studentIdKey, id);
     notifyListeners();
   }
+
+  /// Forgets the current student (used by "reset all data"): the app
+  /// returns to first-run onboarding.
+  Future<void> clearStudent() async {
+    _studentId = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_studentIdKey);
+    notifyListeners();
+  }
 }
