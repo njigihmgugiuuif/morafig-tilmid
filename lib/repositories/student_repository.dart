@@ -21,6 +21,20 @@ class StudentRepository {
     return _db.select(_db.students).getSingleOrNull();
   }
 
+  /// Edits the basic profile entered at onboarding.
+  Future<void> updateProfile({
+    required String studentId,
+    required String fullNameOrNickname,
+    required int sleepFloorMinMinutes,
+  }) async {
+    await (_db.update(_db.students)..where((t) => t.id.equals(studentId)))
+        .write(StudentsCompanion(
+      fullNameOrNickname: Value(fullNameOrNickname),
+      sleepFloorMinMinutes: Value(sleepFloorMinMinutes),
+      updatedAt: Value(DateTime.now().toUtc()),
+    ));
+  }
+
   Future<Student> createInitialStudent({
     required String fullNameOrNickname,
     required int sleepFloorMinMinutes,
