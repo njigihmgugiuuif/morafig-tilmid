@@ -1,0 +1,78 @@
+name: Flutter analyze and test
+
+# يشغّل ما لا أستطيع تشغيله في بيئة المحادثة: توليد Drift، flutter analyze،
+# وكل ملفات test/. لا ينشر شيئًا ولا يلمس gh-pages.
+# شغّله يدويًا من تبويب Actions (Run workflow)، أو يعمل تلقائيًا عند تغيير
+# lib/ أو test/ أو pubspec.yaml.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'lib/**'
+      - 'test/**'
+      - 'pubspec.yaml'
+      - '.github/workflows/flutter-test.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  analyze-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Native SQLite (needed by in-memory DB tests on Linux)
+        run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev
+
+      - name: Install dependencies
+        run: |
+          flutter pub add intl:^0.20.3
+          flutter pub get
+
+      - name: Generate drift code
+        run: dart run build_runner build --delete-conflicting-outputs 2>&1 | tee build_runner.log
+
+      - name: Repository boundary check
+        run: bash tools/check_repository_boundaries.sh 2>&1 | tee boundaries.log
+
+      - name: Analyze (errors fail the job, infos and warnings do not)
+        run: |
+          set -o pipefail
+          flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | tee analyze.log
+
+      - name: Run all tests
+        run: |
+          set -o pipefail
+          flutter test --reporter expanded 2>&1 | tee test.log
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "=== analyze: errors ==="
+          grep -E "error •" analyze.log | sed 's/^ *//' | sort -u | head -100 || true
+          echo
+          echo "=== tests: result line ==="
+          grep -E "All tests passed|Some tests failed|\+[0-9]+.*(-[0-9]+)?:" test.log | tail -3 || true
+          echo
+          echo "=== tests: failures ==="
+          grep -E "\[E\]|FAILED|Exception|Expected:|Actual:" test.log | head -80 || true
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: analyze-and-test-logs
+          path: |
+            build_runner.log
+            boundaries.log
+            analyze.log
+            test.log
+          if-no-files-found: ignore
