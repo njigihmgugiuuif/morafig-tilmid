@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../database/app_database.dart';
 import '../../repositories/content_repository.dart';
 import '../../repositories/task_repository.dart';
+import '../../services/intelligence_service.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/async_section.dart';
@@ -142,6 +143,74 @@ class _TaskStreamList extends StatelessWidget {
   }
 }
 
+bool _completingTask = false;
+
+/// Asks how well the student understood, then completes the task and lets
+/// IntelligenceService turn that evidence into Mastery/Memory/Priority.
+/// Dismissing the sheet completes nothing. A guard prevents double taps.
+Future<void> _completeWithFeedback(
+    BuildContext context, AppDatabase db, Task task) async {
+  if (_completingTask) return;
+  _completingTask = true;
+  try {
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text('كيف كان فهمك لهذا الدرس؟',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              ListTile(
+                leading: const Icon(Icons.sentiment_very_satisfied,
+                    color: AppColors.success),
+                title: const Text('فهمته جيدًا'),
+                onTap: () => Navigator.pop(sheetContext, Understanding.good),
+              ),
+              ListTile(
+                leading: const Icon(Icons.sentiment_neutral),
+                title: const Text('فهمت جزءًا منه'),
+                onTap: () =>
+                    Navigator.pop(sheetContext, Understanding.partial),
+              ),
+              ListTile(
+                leading: const Icon(Icons.sentiment_dissatisfied),
+                title: const Text('لم أفهمه'),
+                onTap: () =>
+                    Navigator.pop(sheetContext, Understanding.notUnderstood),
+              ),
+              TextButton(
+                onPressed: () =>
+                    Navigator.pop(sheetContext, Understanding.unknown),
+                child: const Text('تخطي (لا تحديث للتحليل)'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (choice == null) return; // dismissed: task stays open
+
+    await TaskRepository(db).markComplete(task, understanding: choice);
+    final result = await IntelligenceService(db).processPendingEvents();
+    if (context.mounted && result.hasErrors) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text('تعذّر تحديث التحليل: ${result.errors.first}')),
+      );
+    }
+  } finally {
+    _completingTask = false;
+  }
+}
+
 class _TaskCard extends StatelessWidget {
   const _TaskCard({
     required this.task,
@@ -171,9 +240,7 @@ class _TaskCard extends StatelessWidget {
                     icon: const Icon(Icons.check_circle_outline,
                         color: AppColors.success),
                     tooltip: 'وضع علامة إنجاز',
-                    onPressed: () async {
-                      await TaskRepository(db).markComplete(task);
-                    },
+                    onPressed: () => _completeWithFeedback(context, db, task),
                   )
                 : const Icon(Icons.check_circle, color: AppColors.success),
           );
@@ -219,6 +286,7 @@ class _AddTaskSheetState extends State<_AddTaskSheet> {
       estimatedDurationMinutes: int.parse(_durationController.text),
       isSplittable: _isSplittable,
     );
+    await IntelligenceService(db).processPendingEvents();
     if (mounted) Navigator.of(context).pop();
   }
 
