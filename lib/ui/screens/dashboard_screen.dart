@@ -7,6 +7,7 @@ import '../../repositories/exam_repository.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/async_section.dart';
+import 'settings_screen.dart';
 
 /// The very first screen the student sees. Carries the required identity
 /// block (institution / app name / tagline) plus a real, live snapshot
@@ -37,7 +38,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          _IdentityHeader(),
+          Stack(
+            children: [
+              _IdentityHeader(),
+              Positioned(
+                top: 4,
+                left: 4,
+                child: IconButton(
+                  tooltip: 'الإعدادات',
+                  icon: const Icon(Icons.settings, color: Colors.white70),
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const SettingsScreen(),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 20),
           _SectionTitle('مهام اليوم'),
           AsyncSection<List<Task>>(
