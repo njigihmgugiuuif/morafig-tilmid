@@ -46,7 +46,7 @@ void main() {
     test('every table has id (UUID-shaped text), createdAt, updatedAt, '
         'syncVersion columns', () {
       for (final table in db.allTables) {
-        final columnNames = table.$columns.map((c) => c.name.name).toSet();
+        final columnNames = table.$columns.map((c) => c.name).toSet();
         expect(columnNames, contains('id'));
         expect(columnNames, contains('created_at'));
         expect(columnNames, contains('updated_at'));
