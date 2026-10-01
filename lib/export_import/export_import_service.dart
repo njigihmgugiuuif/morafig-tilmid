@@ -109,6 +109,31 @@ class ExportImportService {
     });
   }
 
+  /// Replaces ALL local data with the backup, atomically: either the whole
+  /// backup is restored or nothing changes (any failure rolls the delete
+  /// back too). Foreign keys are deferred to commit time so tables can be
+  /// emptied and refilled in any order within the one transaction.
+  Future<void> restoreReplacingAll(String jsonString) async {
+    final dynamic decoded;
+    try {
+      decoded = jsonDecode(jsonString);
+    } on FormatException catch (e) {
+      throw ImportValidationException('Not valid JSON: $e');
+    }
+    if (decoded is! Map<String, dynamic>) {
+      throw ImportValidationException('Backup is not a JSON object.');
+    }
+    _validateShape(decoded);
+
+    await _db.transaction(() async {
+      await _db.customStatement('PRAGMA defer_foreign_keys = ON;');
+      for (final table in _db.allTables) {
+        await _db.delete(table).go();
+      }
+      await importAll(jsonString);
+    });
+  }
+
   void _validateShape(Map<String, dynamic> parsed) {
     if (parsed['schemaVersion'] == null) {
       throw ImportValidationException('Missing schemaVersion.');
