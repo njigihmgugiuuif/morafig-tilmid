@@ -13,17 +13,34 @@ import 'theme/app_theme.dart';
 
 /// Root widget.
 ///
+/// AppState is created here, ABOVE MaterialApp's Navigator, so that every
+/// route (bottom sheets, dialogs, pushed screens such as Settings) can
+/// reach it with `context.read<AppState>()`. Previously the provider lived
+/// inside the `home` route only; routes opened through the Navigator
+/// (e.g. the add-task / add-exam bottom sheets) are siblings of `home`,
+/// not descendants, so they could not find it.
+///
 /// The live diagnostic (`_DiagnosticBootstrap`, below) confirmed on
-/// 2026-10-01 that the Flutter engine and the Drift/WASM database all work
-/// on the production URL (root cause was the missing flutter_bootstrap.js
-/// tag in web/index.html). The normal `_AppBootstrap` is restored as
-/// `home`; the diagnostic class is kept below, unused, so it can be
-/// switched back on by changing `home:` if ever needed again.
-class MarafiqApp extends StatelessWidget {
+/// 2026-10-01 that the Flutter engine and the Drift/WASM database work on
+/// the production URL. It is kept, unused, so it can be switched back on
+/// by passing it as `home` if ever needed again.
+class MarafiqApp extends StatefulWidget {
   const MarafiqApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  State<MarafiqApp> createState() => _MarafiqAppState();
+}
+
+class _MarafiqAppState extends State<MarafiqApp> {
+  late final Future<AppState> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = AppState.bootstrap();
+  }
+
+  Widget _app({required Widget home}) {
     return MaterialApp(
       title: 'مرافق التلميذ',
       debugShowCheckedModeBanner: false,
@@ -43,8 +60,87 @@ class MarafiqApp extends StatelessWidget {
           child: child ?? const SizedBox.shrink(),
         );
       },
-      home: const _AppBootstrap(),
+      home: home,
     );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<AppState>(
+      future: _future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return _app(home: const _LoadingScreen());
+        }
+        if (snapshot.hasError) {
+          return _app(home: _BootstrapErrorScreen(error: snapshot.error!));
+        }
+        return ChangeNotifierProvider<AppState>.value(
+          value: snapshot.data!,
+          child: _app(home: const _AppHome()),
+        );
+      },
+    );
+  }
+}
+
+class _LoadingScreen extends StatelessWidget {
+  const _LoadingScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      backgroundColor: AppColors.primary,
+      body: Center(
+        child: CircularProgressIndicator(color: Colors.white),
+      ),
+    );
+  }
+}
+
+class _BootstrapErrorScreen extends StatelessWidget {
+  const _BootstrapErrorScreen({required this.error});
+  final Object error;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline,
+                  size: 48, color: AppColors.danger),
+              const SizedBox(height: 12),
+              const Text('تعذّر تشغيل قاعدة البيانات المحلية',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Text('$error',
+                  style: const TextStyle(fontSize: 12),
+                  textAlign: TextAlign.center),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () => SystemNavigator.pop(),
+                child: const Text('إغلاق'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Onboarding until a student exists locally, then the main shell.
+class _AppHome extends StatelessWidget {
+  const _AppHome();
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.watch<AppState>();
+    return state.hasStudent ? const HomeShell() : const OnboardingScreen();
   }
 }
 
@@ -209,82 +305,6 @@ class _DiagnosticBootstrapState extends State<_DiagnosticBootstrap> {
             ),
         ],
       ),
-    );
-  }
-}
-
-// --- Original bootstrap kept below, unused while the diagnostic above is
-// active, so it can be restored by simply changing `home:` above back to
-// `const _AppBootstrap()` once the hang is fixed. ---
-
-class _AppBootstrap extends StatefulWidget {
-  const _AppBootstrap();
-  @override
-  State<_AppBootstrap> createState() => _AppBootstrapState();
-}
-
-class _AppBootstrapState extends State<_AppBootstrap> {
-  late final Future<AppState> _future;
-
-  @override
-  void initState() {
-    super.initState();
-    _future = AppState.bootstrap();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<AppState>(
-      future: _future,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
-          return const Scaffold(
-            backgroundColor: AppColors.primary,
-            body: Center(
-              child: CircularProgressIndicator(color: Colors.white),
-            ),
-          );
-        }
-        if (snapshot.hasError) {
-          return Scaffold(
-            body: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.error_outline,
-                        size: 48, color: AppColors.danger),
-                    const SizedBox(height: 12),
-                    const Text('تعذّر تشغيل قاعدة البيانات المحلية',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    Text('${snapshot.error}',
-                        style: const TextStyle(fontSize: 12),
-                        textAlign: TextAlign.center),
-                    const SizedBox(height: 20),
-                    ElevatedButton(
-                      onPressed: () => SystemNavigator.pop(),
-                      child: const Text('إغلاق'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }
-        final appState = snapshot.data!;
-        return ChangeNotifierProvider<AppState>.value(
-          value: appState,
-          child: Consumer<AppState>(
-            builder: (context, state, _) {
-              return state.hasStudent
-                  ? const HomeShell()
-                  : const OnboardingScreen();
-            },
-          ),
-        );
-      },
     );
   }
 }
