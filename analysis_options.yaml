@@ -28,6 +28,9 @@ include: package:flutter_lints/flutter.yaml
 # relationship, not a guard bypass.
 
 analyzer:
+  exclude:
+    - student_app_foundation/**
+    - build/**
   errors:
     todo: ignore
 
