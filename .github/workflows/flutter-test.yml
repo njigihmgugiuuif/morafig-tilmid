@@ -65,6 +65,24 @@ jobs:
           echo "=== tests: failures ==="
           grep -E "\[E\]|FAILED|Exception|Expected:|Actual:" test.log | head -80 || true
 
+      - name: Job summary (shown on the run's main page)
+        if: always()
+        run: |
+          {
+            echo "## Test result"
+            echo '```'
+            grep -E "All tests passed|Some tests failed" test.log | tail -2 || true
+            echo '```'
+            echo "## Failures"
+            echo '```'
+            grep -E "\[E\]|Expected:|Actual:|Exception|Error:" -B2 -A6 test.log | head -150 || true
+            echo '```'
+            echo "## Analyze errors"
+            echo '```'
+            grep -E "error •" analyze.log | sort -u | head -40 || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Gate (fails the job if analyze has errors or any test failed)
         if: always()
         run: |
