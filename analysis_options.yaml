@@ -28,6 +28,10 @@ include: package:flutter_lints/flutter.yaml
 # relationship, not a guard bypass.
 
 analyzer:
+  # student_app_foundation/ is a stale duplicate copy of the project (its
+  # tests import package:student_app/..., which resolves to the ROOT lib/,
+  # so they fail to analyze here). Excluded from analysis only; nothing is
+  # deleted.
   exclude:
     - student_app_foundation/**
     - build/**
