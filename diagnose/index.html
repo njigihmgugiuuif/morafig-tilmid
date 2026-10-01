@@ -9,23 +9,15 @@
   <meta name="theme-color" content="#1E5F74">
   <meta name="color-scheme" content="light dark">
 
-  <!-- SEO: title/description — required item #6 from the product brief.
-       TODO (needs your input once the GitHub Pages URL is known): add a
-       <link rel="canonical" href="https://YOUR-USERNAME.github.io/YOUR-REPO/">
-       tag here, and update the same URL in web/sitemap.xml. This cannot
-       be filled in from this sandbox because it depends on your actual
-       GitHub username/repo name. -->
   <title>مرافق التلميذ — ثانوية رابح بطاط</title>
   <meta name="description" content="مرافق التلميذ: تطبيق المرافقة والتنظيم الدراسي طوال العام لتلاميذ ثانوية رابح بطاط — تخطيط دراسي، متابعة التقدم، المراجعة، الأولويات، والامتحانات، ويعمل بدون اتصال بالإنترنت.">
   <meta name="robots" content="index, follow">
 
-  <!-- Open Graph (how the link looks if shared on social apps) -->
   <meta property="og:title" content="مرافق التلميذ">
   <meta property="og:description" content="المرافقة والتنظيم الدراسي طوال العام — ثانوية رابح بطاط">
   <meta property="og:type" content="website">
   <meta property="og:image" content="icons/Icon-512.png">
 
-  <!-- iOS "Add to Home Screen" support -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="مرافق التلميذ">
@@ -35,13 +27,6 @@
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
-  <!-- One-time self-cleaning step (added to fix a stale-service-worker
-       issue from earlier failed deploy attempts, 2026-09-29). Runs on
-       every page load and clears any existing service worker + Cache
-       Storage entries for this origin before Flutter's own bootstrap
-       script gets a chance to re-register a correct one on the NEXT
-       load. Safe to remove later once confirmed no visitor is still
-       carrying a stale worker. -->
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(function (registrations) {
@@ -59,9 +44,6 @@
     }
   </script>
 
-  <!-- First-paint loading indicator shown before Flutter's engine takes
-       over — avoids a completely blank white screen on slower
-       connections/devices, one of the "beginner-invisible" edge cases. -->
   <div id="app-loading" style="
       position:fixed; inset:0; display:flex; flex-direction:column;
       align-items:center; justify-content:center;
@@ -72,16 +54,12 @@
   </div>
   <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
   <script>
-    // Hides the loading screen once Flutter has attached to the DOM.
-    // Modern `flutter build web` output auto-injects its own bootstrap
-    // script (flutter_bootstrap.js) before </body> — we don't hand-write
-    // the engine-loading script here to avoid it going stale against a
-    // Flutter/Dart SDK version this sandbox cannot verify (see
-    // DEVIATIONS.md, DEVIATION-9).
     window.addEventListener('flutter-first-frame', function () {
       var el = document.getElementById('app-loading');
       if (el) el.remove();
     });
   </script>
+
+  <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
