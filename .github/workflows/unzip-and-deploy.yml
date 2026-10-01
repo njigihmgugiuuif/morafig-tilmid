@@ -9,7 +9,9 @@ permissions:
   contents: write
   pages: write
   id-token: write
-
+concurrency:
+  group: pages-deploy
+  cancel-in-progress: false
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
