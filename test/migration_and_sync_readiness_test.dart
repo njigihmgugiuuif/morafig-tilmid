@@ -6,12 +6,12 @@ import 'package:student_app/database/testing/in_memory_database.dart';
 
 void main() {
   group('F. Migration', () {
-    test('a brand-new in-memory database opens at schemaVersion 1 without '
-        'error', () async {
+    test('a brand-new in-memory database opens at the current '
+        'schemaVersion without error', () async {
       final db = createInMemoryTestDatabase();
       final version =
           await db.customSelect('PRAGMA user_version;').getSingle();
-      expect(version.data['user_version'], equals(1));
+      expect(version.data['user_version'], equals(db.schemaVersion));
       await db.close();
     });
 
