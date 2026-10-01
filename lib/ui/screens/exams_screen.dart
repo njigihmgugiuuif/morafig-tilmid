@@ -5,6 +5,7 @@ import '../../database/app_database.dart';
 import '../../domain/enums.dart';
 import '../../repositories/content_repository.dart';
 import '../../repositories/exam_repository.dart';
+import '../../services/intelligence_service.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/async_section.dart';
@@ -118,6 +119,7 @@ class _AddExamSheetState extends State<_AddExamSheet> {
       examDate: _date,
       examType: ExamType.values.byName(_type),
     );
+    await IntelligenceService(db).refreshPriorities();
     if (mounted) Navigator.of(context).pop();
   }
 
