@@ -13,12 +13,12 @@ import 'theme/app_theme.dart';
 
 /// Root widget.
 ///
-/// TEMPORARY DIAGNOSTIC BUILD (2026-09-30): the normal FutureBuilder-based
-/// bootstrap was replaced with `_DiagnosticBootstrap` below so that the
-/// real database-connection test runs, and shows live step-by-step
-/// results, on this exact same production URL — no separate build, no
-/// second link to remember or mistype. Revert to `_AppBootstrap` once the
-/// underlying hang is diagnosed and fixed.
+/// The live diagnostic (`_DiagnosticBootstrap`, below) confirmed on
+/// 2026-10-01 that the Flutter engine and the Drift/WASM database all work
+/// on the production URL (root cause was the missing flutter_bootstrap.js
+/// tag in web/index.html). The normal `_AppBootstrap` is restored as
+/// `home`; the diagnostic class is kept below, unused, so it can be
+/// switched back on by changing `home:` if ever needed again.
 class MarafiqApp extends StatelessWidget {
   const MarafiqApp({super.key});
 
@@ -43,7 +43,7 @@ class MarafiqApp extends StatelessWidget {
           child: child ?? const SizedBox.shrink(),
         );
       },
-      home: const _DiagnosticBootstrap(),
+      home: const _AppBootstrap(),
     );
   }
 }
