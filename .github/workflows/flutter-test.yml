@@ -43,14 +43,14 @@ jobs:
       - name: Repository boundary check
         run: bash tools/check_repository_boundaries.sh 2>&1 | tee boundaries.log
 
-      - name: Analyze (errors fail the job, infos and warnings do not)
+      - name: Analyze (never stops the tests; gated in the last step)
+        continue-on-error: true
         run: |
-          set -o pipefail
           flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | tee analyze.log
 
-      - name: Run all tests
+      - name: Run all tests (root test/ only)
+        continue-on-error: true
         run: |
-          set -o pipefail
           flutter test --reporter expanded 2>&1 | tee test.log
 
       - name: Summary
@@ -64,6 +64,15 @@ jobs:
           echo
           echo "=== tests: failures ==="
           grep -E "\[E\]|FAILED|Exception|Expected:|Actual:" test.log | head -80 || true
+
+      - name: Gate (fails the job if analyze has errors or any test failed)
+        if: always()
+        run: |
+          fail=0
+          if grep -qE "^ +error •" analyze.log; then echo "analyze: ERRORS FOUND"; fail=1; fi
+          if grep -qE "Some tests failed|Failed to load|Error: " test.log; then echo "tests: FAILURES FOUND"; fail=1; fi
+          if ! grep -qE "All tests passed" test.log; then echo "tests: 'All tests passed' not seen"; fail=1; fi
+          exit $fail
 
       - name: Upload logs
         if: always()
