@@ -1,9 +1,13 @@
 name: Flutter analyze and test
 
-# يشغّل ما لا أستطيع تشغيله في بيئة المحادثة: توليد Drift، flutter analyze،
-# وكل ملفات test/. لا ينشر شيئًا ولا يلمس gh-pages.
-# شغّله يدويًا من تبويب Actions (Run workflow)، أو يعمل تلقائيًا عند تغيير
-# lib/ أو test/ أو pubspec.yaml.
+# Phase-1 verification pipeline (the only workflow that decides "does the
+# project actually build and pass?"). Order, as agreed:
+#   Flutter setup -> version check -> pub get -> build_runner -> analyze
+#   -> test -> build web --release
+# pubspec.yaml is the single source of truth: no step here may change
+# dependencies, and a guard fails the run if pubspec.yaml differs after the
+# steps ran. Nothing here deploys or touches gh-pages.
+# Run it manually from the Actions tab (Run workflow) or by pushing a change.
 
 on:
   workflow_dispatch:
@@ -12,7 +16,10 @@ on:
     paths:
       - 'lib/**'
       - 'test/**'
+      - 'web/**'
+      - 'tools/**'
       - 'pubspec.yaml'
+      - 'analysis_options.yaml'
       - '.github/workflows/flutter-test.yml'
 
 permissions:
@@ -21,89 +28,160 @@ permissions:
 jobs:
   analyze-and-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
+
+      - name: Guard - no dependency mutation in any workflow
+        run: |
+          # Character classes keep this step from matching its own text.
+          if grep -RnE "(flutter|dart) pub [a]dd|pub [u]pgrade|pub [d]owngrade" .github; then
+            echo "A workflow changes dependencies. pubspec.yaml must be the only source."
+            exit 1
+          fi
+          if grep -nE "^dependency_[o]verrides" pubspec.yaml; then
+            echo "dependency_overrides found in pubspec.yaml"
+            exit 1
+          fi
+          echo "OK: no dependency mutation found"
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
 
+      - name: Flutter / Dart version verification
+        run: |
+          flutter --version 2>&1 | tee versions.log
+          dart --version 2>&1 | tee -a versions.log
+
       - name: Native SQLite (needed by in-memory DB tests on Linux)
         run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev
 
-      - name: Install dependencies
-        run: |
-          flutter pub get
+      - name: flutter pub get
+        id: pubget
+        shell: bash
+        run: flutter pub get 2>&1 | tee pub_get.log
 
-      - name: Generate drift code
-        run: dart run build_runner build --delete-conflicting-outputs 2>&1 | tee build_runner.log
-
-      - name: Repository boundary check
-        run: bash tools/check_repository_boundaries.sh 2>&1 | tee boundaries.log
-
-      - name: Analyze (never stops the tests; gated in the last step)
-        continue-on-error: true
-        run: |
-          flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | tee analyze.log
-
-      - name: Run all tests (root test/ only)
-        continue-on-error: true
-        run: |
-          flutter test --reporter expanded 2>&1 | tee test.log
-
-      - name: Build web (release)
-        continue-on-error: true
-        run: |
-          flutter build web --release 2>&1 | tee build_web.log
-
-      - name: Summary
-        if: always()
-        run: |
-          echo "=== analyze: errors ==="
-          grep -E "error •" analyze.log | sed 's/^ *//' | sort -u | head -100 || true
-          echo
-          echo "=== tests: result line ==="
-          grep -E "All tests passed|Some tests failed|\+[0-9]+.*(-[0-9]+)?:" test.log | tail -3 || true
-          echo
-          echo "=== tests: failures ==="
-          grep -E "\[E\]|FAILED|Exception|Expected:|Actual:" test.log | head -80 || true
-
-      - name: Job summary (shown on the run's main page)
+      - name: Resolved dependency versions (from pubspec.lock)
         if: always()
         run: |
           {
-            echo "## Test result"
+            for p in flutter_localizations drift drift_dev sqlite3 sqlite3_flutter_libs intl build_runner test; do
+              v=$(awk -v p="$p" '$0 == "  " p ":" {f=1} f && /version:/ {gsub(/"/,"",$2); print $2; exit}' pubspec.lock 2>/dev/null)
+              echo "$p = ${v:-not in lock / sdk}"
+            done
+          } 2>&1 | tee resolved_versions.log
+          echo "--- versions hard-coded in the deploy workflow ---" | tee -a resolved_versions.log
+          grep -oE "drift-[0-9.]+/drift_worker" .github/workflows/unzip-and-deploy.yml | tee -a resolved_versions.log || true
+          grep -oE "sqlite3-[0-9.]+/sqlite3.wasm" .github/workflows/unzip-and-deploy.yml | tee -a resolved_versions.log || true
+
+      - name: Generate drift code (build_runner)
+        id: buildrunner
+        shell: bash
+        run: dart run build_runner build --delete-conflicting-outputs 2>&1 | tee build_runner.log
+
+      - name: Repository boundary check
+        id: boundaries
+        shell: bash
+        run: bash tools/check_repository_boundaries.sh 2>&1 | tee boundaries.log
+
+      - name: Analyze
+        run: |
+          set +e
+          flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | tee analyze.log
+          echo "${PIPESTATUS[0]}" > analyze.exit
+          exit 0
+
+      - name: Test
+        run: |
+          set +e
+          flutter test --reporter expanded 2>&1 | tee test.log
+          echo "${PIPESTATUS[0]}" > test.exit
+          exit 0
+
+      - name: Build web (release)
+        run: |
+          set +e
+          flutter build web --release 2>&1 | tee build_web.log
+          echo "${PIPESTATUS[0]}" > build_web.exit
+          exit 0
+
+      - name: pubspec.yaml unchanged by the run
+        run: |
+          git diff --exit-code pubspec.yaml && echo "OK: pubspec.yaml untouched" | tee pubspec_guard.log
+
+      - name: Result summary (shown on the run's main page)
+        if: always()
+        env:
+          PUBGET: ${{ steps.pubget.outcome }}
+          BUILDRUNNER: ${{ steps.buildrunner.outcome }}
+          BOUNDARIES: ${{ steps.boundaries.outcome }}
+        run: |
+          rc() { [ -f "$1.exit" ] && [ "$(cat $1.exit)" = "0" ] && echo PASS || echo "FAIL-or-NOT-RUN"; }
+          web=FAIL-or-NOT-RUN
+          [ "$(rc build_web)" = "PASS" ] && [ -f build/web/index.html ] && [ -f build/web/main.dart.js ] && web=PASS
+          {
+            echo "## Phase 1 result"
+            echo "| step | result |"
+            echo "|---|---|"
+            echo "| pub get | $PUBGET |"
+            echo "| build_runner | $BUILDRUNNER |"
+            echo "| repository boundaries | $BOUNDARIES |"
+            echo "| analyze (errors are fatal; warnings/infos reported only) | $(rc analyze) |"
+            echo "| flutter test | $(rc test) |"
+            echo "| flutter build web --release | $web |"
+            echo
+            echo "## Versions"
             echo '```'
-            grep -E "All tests passed|Some tests failed" test.log | tail -2 || true
+            head -3 versions.log
+            cat resolved_versions.log
             echo '```'
-            echo "## Failures"
+            echo "## Analyze: errors, then counts of warnings/infos"
             echo '```'
-            grep -E "\[E\]|Expected:|Actual:|Exception|Error:" -B2 -A6 test.log | head -150 || true
+            grep -E "^ +error •" analyze.log | sort -u | head -60
+            echo "warnings: $(grep -cE '^ +warning •' analyze.log)  infos: $(grep -cE '^ +info •' analyze.log)"
             echo '```'
-            echo "## Analyze errors"
+            echo "## Test failures"
             echo '```'
-            grep -E "error •" analyze.log | sort -u | head -40 || true
+            grep -E "All tests passed|Some tests failed" test.log | tail -2
+            grep -E "\[E\]|Expected:|Actual:" -B2 -A6 test.log | head -120
+            echo '```'
+            echo "## Web build"
+            echo '```'
+            tail -15 build_web.log
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Gate (fails the job if analyze has errors or any test failed)
+      - name: Gate (fails the run unless EVERYTHING passed)
         if: always()
         run: |
           fail=0
-          if grep -qE "^ +error •" analyze.log; then echo "analyze: ERRORS FOUND"; fail=1; fi
-          if grep -qE "Some tests failed|Failed to load|Error: " test.log; then echo "tests: FAILURES FOUND"; fail=1; fi
-          if ! grep -qE "All tests passed" test.log; then echo "tests: 'All tests passed' not seen"; fail=1; fi
+          for s in analyze test build_web; do
+            if [ "$(cat $s.exit 2>/dev/null)" != "0" ]; then echo "FAILED or not run: $s"; fail=1; fi
+          done
+          grep -q "All tests passed" test.log 2>/dev/null || { echo "tests: 'All tests passed' not seen"; fail=1; }
+          [ -f build/web/index.html ] && [ -f build/web/main.dart.js ] || { echo "web build output missing"; fail=1; }
+          [ "${{ steps.pubget.outcome }}" = "success" ] || fail=1
+          [ "${{ steps.buildrunner.outcome }}" = "success" ] || fail=1
+          [ "${{ steps.boundaries.outcome }}" = "success" ] || fail=1
+          [ $fail = 0 ] && echo "PHASE 1: ALL CHECKS PASSED" || echo "PHASE 1: FAILED"
           exit $fail
 
       - name: Upload logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: analyze-and-test-logs
+          name: phase1-logs
           path: |
+            versions.log
+            resolved_versions.log
+            pub_get.log
             build_runner.log
             boundaries.log
             analyze.log
             test.log
+            build_web.log
+            pubspec.lock
+            *.exit
           if-no-files-found: ignore
