@@ -34,7 +34,6 @@ jobs:
 
       - name: Install dependencies
         run: |
-          flutter pub add intl:^0.20.3
           flutter pub get
 
       - name: Generate drift code
@@ -52,6 +51,11 @@ jobs:
         continue-on-error: true
         run: |
           flutter test --reporter expanded 2>&1 | tee test.log
+
+      - name: Build web (release)
+        continue-on-error: true
+        run: |
+          flutter build web --release 2>&1 | tee build_web.log
 
       - name: Summary
         if: always()

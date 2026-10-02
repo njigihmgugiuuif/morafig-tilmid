@@ -25,7 +25,6 @@ jobs:
 
       - name: Install dependencies
         run: |
-          flutter pub add intl:^0.20.3
           flutter pub get
 
       - name: Generate drift code

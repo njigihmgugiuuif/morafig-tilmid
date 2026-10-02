@@ -16,7 +16,6 @@ jobs:
       - name: Install dependencies
         continue-on-error: true
         run: |
-          flutter pub add intl:^0.20.3 2>&1 | tee pub_get.log
           flutter pub get 2>&1 | tee -a pub_get.log
 
       - name: Generate drift code
