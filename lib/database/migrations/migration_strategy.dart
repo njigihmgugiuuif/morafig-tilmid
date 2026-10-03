@@ -41,6 +41,27 @@ MigrationStrategy buildMigrationStrategy(AppDatabase db) {
         await m.addColumn(
             db.memoryStates, db.memoryStates.lastUpdatedFromEventId);
       }
+      if (from < 3) {
+        // v3: Weekly Timeline needs the student's recurring weekly template
+        // (school timetable, sleep window...). Purely additive: a new table,
+        // no existing row is touched. See DEVIATIONS.md, DEVIATION-16.
+        await m.createTable(db.weeklyTemplateEntries);
+      }
+      if (from < 4) {
+        // v4: Phase 1 data model. Phase 1 was planned as "v3" but v3 was
+        // already used by WeeklyTemplateEntries (Phase 2), so it is v4 —
+        // the chain stays v1 -> v2 -> v3 -> v4 with one branch per step.
+        // Purely additive: 4 new tables, 3 new NULLABLE columns. No existing
+        // row is touched and no value is invented for old rows (NULL =
+        // unknown). See DEVIATIONS.md, DEVIATION-17.
+        await m.createTable(db.energyFocusLogs);
+        await m.createTable(db.academicTerms);
+        await m.createTable(db.holidays);
+        await m.createTable(db.goals);
+        await m.addColumn(db.masteryStates, db.masteryStates.confidence);
+        await m.addColumn(db.masteryStates, db.masteryStates.observationCount);
+        await m.addColumn(db.subjects, db.subjects.curriculumVersionId);
+      }
     },
     beforeOpen: (details) async {
       await db.customStatement('PRAGMA foreign_keys = ON;');

@@ -17,6 +17,13 @@ class MasteryStates extends Table with AuditColumns {
   TextColumn get knowledgeNodeId => text().references(KnowledgeNodes, #id)();
   RealColumn get probability => real()();
   TextColumn get lastUpdatedFromEventId => text().references(Events, #id)();
+  // Added in schema v4 (DEVIATION-17). Both are nullable: NULL means "not
+  // computed / unknown", never zero. Accuracy (`probability`) and confidence
+  // are different quantities and are stored separately. The Mastery phase
+  // owns how they are populated; Phase 1 only provides the columns, so no
+  // row carries an invented value.
+  RealColumn get confidence => real().nullable()(); // in [0,1] when set
+  IntColumn get observationCount => integer().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};

@@ -22,6 +22,8 @@ const Set<String> kMutableStateTables = {
   'subjects', 'units', 'lessons', 'knowledge_nodes', 'prerequisites',
   'tasks', 'task_segments', 'assignments', 'exams', 'deadlines',
   'study_sessions', 'availabilities', 'reality_constraints',
+  'weekly_template_entries',
+  'energy_focus_logs', 'academic_terms', 'holidays', 'goals',
   'mastery_states', 'memory_states', 'error_records', 'time_estimates',
   'workload_states', 'priority_states', 'recovery_records', 'emergency_states',
   'algorithm_versions', 'configuration_versions', 'threshold_registry_entries',
@@ -39,7 +41,16 @@ class ExportImportService {
   ExportImportService(this._db);
   final AppDatabase _db;
 
-  static const int schemaVersion = 1;
+  /// Export FORMAT version written by [exportAll] (independent of the
+  /// database schemaVersion). 2 = includes the schema-v4 tables/columns.
+  static const int schemaVersion = 2;
+
+  /// Export formats this build can import. A file from an older format
+  /// (1 = schema <= v3) stays importable: tables it does not contain are
+  /// skipped and columns it does not contain take their NULL/default value.
+  /// A file from a NEWER format than this build is rejected (it may carry
+  /// data this build cannot represent).
+  static const Set<int> supportedImportVersions = {1, 2};
 
   /// Full local export. No network access anywhere in this method — it
   /// reads exclusively from the local SQLite connection already open on
@@ -90,6 +101,11 @@ class ExportImportService {
     final tables = (parsed['tables'] as Map).cast<String, dynamic>();
 
     await _db.transaction(() async {
+      // Rows may reference tables that appear later in `allTables` (e.g. a
+      // subject pointing at its curriculum version). Defer FK checks to
+      // COMMIT so insert order cannot matter; a genuinely dangling reference
+      // still fails at commit and the whole import rolls back.
+      await _db.customStatement('PRAGMA defer_foreign_keys = ON;');
       for (final table in _db.allTables) {
         final name = table.actualTableName;
         final incomingRows = (tables[name] as List?)?.cast<Map<String, dynamic>>();
@@ -138,11 +154,11 @@ class ExportImportService {
     if (parsed['schemaVersion'] == null) {
       throw ImportValidationException('Missing schemaVersion.');
     }
-    if (parsed['schemaVersion'] != schemaVersion) {
+    final fileVersion = parsed['schemaVersion'];
+    if (fileVersion is! int || !supportedImportVersions.contains(fileVersion)) {
       throw ImportValidationException(
-          'schemaVersion mismatch: file has ${parsed['schemaVersion']}, '
-          'this database is $schemaVersion. Cross-version import is not '
-          'supported yet — migrate the file first (see Migration Strategy).');
+          'schemaVersion mismatch: file has $fileVersion, this build '
+          'imports formats $supportedImportVersions (writes $schemaVersion).');
     }
     if (parsed['tables'] is! Map) {
       throw ImportValidationException('Missing or malformed "tables" object.');

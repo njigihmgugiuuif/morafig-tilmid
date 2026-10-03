@@ -7,14 +7,17 @@ import 'tables/planning_tables.dart';
 import 'tables/derived_state_tables.dart';
 import 'tables/audit_tables.dart';
 import 'tables/config_tables.dart';
+import 'tables/weekly_template_tables.dart';
+import 'tables/calendar_and_goal_tables.dart';
 import 'migrations/migration_strategy.dart';
 
 part 'app_database.g.dart';
 
-/// The Data Foundation database. 36 tables total (34 entities from the
+/// The Data Foundation database. 41 tables total (34 entities from the
 /// approved schema + the deliberate StudySession/ScheduleEntry unification
-/// already documented, counted as one — see DEVIATIONS.md for the exact
-/// reconciliation of the count against the schema document).
+/// already documented, counted as one, + WeeklyTemplateEntries added in
+/// schema v3 — DEVIATION-16 — + EnergyFocusLogs, AcademicTerms, Holidays and
+/// Goals added in schema v4 — DEVIATION-17).
 @DriftDatabase(
   tables: [
     // Raw/Reference
@@ -24,7 +27,9 @@ part 'app_database.g.dart';
     PolicyDocuments, CurriculumVersions, SubjectLoads,
     // Planning
     Tasks, TaskSegments, Assignments, Exams, Deadlines,
-    StudySessions, Availabilities, RealityConstraints,
+    StudySessions, Availabilities, RealityConstraints, WeeklyTemplateEntries,
+    // Calendar / goals / energy (schema v4)
+    EnergyFocusLogs, AcademicTerms, Holidays, Goals,
     // Derived State
     MasteryStates, MemoryStates, ErrorRecords, TimeEstimates,
     WorkloadStates, PriorityStates, RecoveryRecords, EmergencyStates,
@@ -56,7 +61,7 @@ class AppDatabase extends _$AppDatabase {
   // DEVIATION-13.
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => buildMigrationStrategy(this);

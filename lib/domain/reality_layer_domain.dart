@@ -1,5 +1,6 @@
 import '../database/app_database.dart' show RealityConstraint, Availability;
 import '../engines/scheduling_engine.dart' show TimeSlot;
+import '../engines/weekly_timeline_engine.dart' show WeekCalendar;
 import '../repositories/availability_repository.dart';
 import '../repositories/reality_and_prerequisite_repositories.dart';
 
@@ -62,7 +63,7 @@ class RealityLayerDomainService {
       for (final window in resolveAvailabilityForDay(availabilities, day)) {
         freeSlots.addAll(subtractConstraints(window, hardConstraints));
       }
-      day = day.add(const Duration(days: 1));
+      day = WeekCalendar.addDays(day, 1);
     }
     return freeSlots;
   }
@@ -83,17 +84,16 @@ class RealityLayerDomainService {
     final specific = all
         .where((a) => a.specificDate != null && isSameDate(a.specificDate!, day))
         .toList();
-    // Dart's DateTime.weekday is 1=Monday..7=Sunday. Availabilities
-    // .dayOfWeek is documented in planning_tables.dart only as "1-7,"
-    // with no convention specified there — this file adopts Dart's
-    // native weekday numbering as that convention, since introducing a
-    // different one would need its own translation layer for no stated
-    // reason. Flagged here explicitly so a future DEVIATION can correct
-    // it cheaply if the intended convention turns out to differ (e.g. a
-    // 1=Sunday convention some regional calendars use).
+    // Availabilities.dayOfWeek is stored in Dart's weekday numbering
+    // (1 = Monday ... 7 = Sunday; DEVIATION-7). The comparison with the
+    // date goes through WeekCalendar, the project's single stored-day <->
+    // Sunday-first-week conversion layer (DEVIATION-17), instead of a
+    // hand-written `== day.weekday`. Behavior is unchanged for valid rows.
     final source = specific.isNotEmpty
         ? specific
-        : all.where((a) => a.dayOfWeek == day.weekday).toList();
+        : all
+            .where((a) => WeekCalendar.storedDayMatches(a.dayOfWeek, day))
+            .toList();
 
     return source
         .map((a) => TimeSlot(

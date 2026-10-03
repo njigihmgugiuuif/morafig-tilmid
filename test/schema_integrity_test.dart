@@ -11,7 +11,7 @@ void main() {
     setUp(() => db = createInMemoryTestDatabase());
     tearDown(() => db.close());
 
-    test('all 36 tables exist and are queryable', () async {
+    test('all 41 tables exist and are queryable', () async {
       // One trivial SELECT per table is enough to prove onCreate() built
       // every table with a valid, matching column set (a mismatch between
       // the Dart table class and the generated SQL would throw here).
@@ -20,10 +20,12 @@ void main() {
         expect(rows, isA<List>(),
             reason: 'Table ${table.actualTableName} failed to query');
       }
-      expect(db.allTables.length, equals(36),
-          reason: 'Expected exactly 36 tables per the Data Foundation '
-              'Schema (34 entities, with ScheduleEntry/StudySession '
-              'unified as one — see DEVIATIONS.md)');
+      expect(db.allTables.length, equals(41),
+          reason: 'Expected exactly 41 tables: the Data Foundation Schema '
+              '(34 entities, with ScheduleEntry/StudySession unified as '
+              'one — see DEVIATIONS.md) plus WeeklyTemplateEntries (v3, '
+              'DEVIATION-16) plus EnergyFocusLogs, AcademicTerms, Holidays '
+              'and Goals (v4, DEVIATION-17)');
     });
 
     test('foreign key enforcement is ON', () async {

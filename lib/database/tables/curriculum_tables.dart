@@ -39,6 +39,12 @@ class CurriculumVersions extends Table with AuditColumns {
 class Subjects extends Table with AuditColumns {
   TextColumn get name => text()();
   TextColumn get educationLevelId => text().references(EducationLevels, #id)();
+  // Added in schema v4 (DEVIATION-17): which curriculum edition this subject
+  // row belongs to. Nullable on purpose: rows created before v4 (and subjects
+  // entered before a curriculum version is known) have no version, and the
+  // schema must not invent one. NULL means "not linked", never "default".
+  TextColumn get curriculumVersionId =>
+      text().nullable().references(CurriculumVersions, #id)();
 
   @override
   Set<Column> get primaryKey => {id};
