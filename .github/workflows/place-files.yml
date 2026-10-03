@@ -1,0 +1,68 @@
+name: Place uploaded files
+
+# One-time helper. Upload the project files FLAT into the repository root
+# (one upload link), then run this workflow manually (Actions -> Place
+# uploaded files -> Run workflow). It moves every file from the root into its
+# real folder, commits, and fails loudly if any expected file is missing.
+# It never touches .github/, never changes dependencies, never deploys.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  place:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Move files into their folders
+        shell: bash
+        run: |
+          declare -A DEST=(
+            [app_database.dart]=lib/database
+            [migration_strategy.dart]=lib/database/migrations
+            [calendar_and_goal_tables.dart]=lib/database/tables
+            [curriculum_tables.dart]=lib/database/tables
+            [derived_state_tables.dart]=lib/database/tables
+            [weekly_template_tables.dart]=lib/database/tables
+            [reality_layer_domain.dart]=lib/domain
+            [gap_detection_engine.dart]=lib/engines
+            [weekly_planner.dart]=lib/engines
+            [weekly_timeline_engine.dart]=lib/engines
+            [export_import_service.dart]=lib/export_import
+            [weekly_template_repository.dart]=lib/repositories
+            [legacy_shapes.dart]=test/fixtures
+            [gap_detection_engine_test.dart]=test
+            [migration_v3_test.dart]=test
+            [migration_v4_test.dart]=test
+            [phase1_v4_test.dart]=test
+            [schema_integrity_test.dart]=test
+            [week_calendar_test.dart]=test
+            [weekly_planner_test.dart]=test
+            [weekly_template_repository_test.dart]=test
+            [weekly_timeline_engine_test.dart]=test
+          )
+          missing=0
+          for f in "${!DEST[@]}"; do
+            [ -f "$f" ] || { echo "MISSING in repository root: $f"; missing=1; }
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "Upload every file to the repository root first, then run again."
+            exit 1
+          fi
+          for f in "${!DEST[@]}"; do
+            mkdir -p "${DEST[$f]}"
+            mv -f "$f" "${DEST[$f]}/$f"
+            echo "placed $f -> ${DEST[$f]}/"
+          done
+
+      - name: Commit the placed files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Place uploaded files into their folders (Phase 1 v4 + Phase 2)"
+          git push

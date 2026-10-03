@@ -1,5 +1,14 @@
 name: Deploy Flutter Web to GitHub Pages
 
+# Deploy is GATED by full verification. Mandatory order, each step runs only
+# if every earlier step succeeded:
+#   flutter pub get -> build_runner -> flutter analyze -> flutter test
+#   -> flutter build web -> (separate job) deploy to GitHub Pages
+# If pub get, build_runner, analyze (any error) or ANY test fails, the web
+# build never starts and the deploy job never runs. The deploy job also
+# never runs if the web build fails. pubspec.yaml stays the single source of
+# truth: nothing here changes dependencies.
+
 on:
   push:
     branches: [ main ]
@@ -9,12 +18,19 @@ permissions:
   contents: write
   pages: write
   id-token: write
+
 concurrency:
   group: pages-deploy
   cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash   # bash with -e -o pipefail, so `cmd | tee log` keeps cmd's failure
+
 jobs:
-  build-and-deploy:
+  verify-and-build:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -23,20 +39,38 @@ jobs:
         with:
           channel: 'stable'
 
-      - name: Install dependencies
-        run: |
-          flutter pub get
+      - name: Native SQLite (needed by the in-memory DB tests on Linux)
+        run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev
 
-      - name: Generate drift code
-        run: dart run build_runner build
+      - name: 1. flutter pub get
+        run: flutter pub get
+
+      - name: 2. build_runner (drift code generation)
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Repository boundary check
+        run: bash tools/check_repository_boundaries.sh
+
+      - name: 3. flutter analyze (any error fails the run)
+        # --no-fatal-infos / --no-fatal-warnings: only ERRORS stop the
+        # pipeline (same policy as flutter-test.yml); warnings and infos are
+        # still printed in the log.
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      - name: 4. flutter test (any failing test fails the run)
+        run: flutter test --reporter expanded 2>&1 | tee test.log
+
+      - name: Confirm the tests really ran and all passed
+        run: |
+          grep -q "All tests passed" test.log || { echo "'All tests passed' not found in test.log"; exit 1; }
 
       - name: Download sqlite3.wasm and drift_worker.js
         run: |
-          curl -L -o web/sqlite3.wasm https://github.com/simolus3/sqlite3.dart/releases/download/sqlite3-3.6.0/sqlite3.wasm
-          curl -L -o web/drift_worker.js https://github.com/simolus3/drift/releases/download/drift-2.35.0/drift_worker.js
+          curl -fL -o web/sqlite3.wasm https://github.com/simolus3/sqlite3.dart/releases/download/sqlite3-3.6.0/sqlite3.wasm
+          curl -fL -o web/drift_worker.js https://github.com/simolus3/drift/releases/download/drift-2.35.0/drift_worker.js
           ls -la web/sqlite3.wasm web/drift_worker.js
 
-      - name: Build Web
+      - name: 5. flutter build web
         run: flutter build web --release --base-href "/morafig-tilmid/"
 
       - name: Build diagnostic page (separate entrypoint, does not affect main app)
@@ -46,6 +80,43 @@ jobs:
             --output build/web_diagnose
           mkdir -p build/web/diagnose
           cp -r build/web_diagnose/* build/web/diagnose/
+
+      - name: Check web output exists
+        run: |
+          test -f build/web/index.html
+          test -f build/web/main.dart.js
+
+      - name: pubspec.yaml unchanged by the run
+        run: git diff --exit-code pubspec.yaml
+
+      - name: Upload web build for the deploy job
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-build
+          path: build/web
+          if-no-files-found: error
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-logs
+          path: |
+            test.log
+            pubspec.lock
+          if-no-files-found: ignore
+
+  deploy:
+    # Runs ONLY when verify-and-build succeeded (default `needs` behavior).
+    needs: verify-and-build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download the verified web build
+        uses: actions/download-artifact@v4
+        with:
+          name: web-build
+          path: build/web
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
