@@ -290,3 +290,60 @@ instead of `connection/connection_stub.dart` (one-line change; the old
 `connection_stub.dart` file is left in place, untouched, and simply
 unused now — deleting it was out of scope for this fix). No table,
 DAO, repository, or test was removed or renamed.
+
+---
+
+## DEVIATION-16 — Sunday-first week, weekly template table (schema v3), and the Weekly Timeline / Gap Detection / Weekly Planner engines (2026-10-02, Phase 2)
+
+**What was added (all additive; nothing removed or renamed):**
+- `lib/engines/weekly_timeline_engine.dart` — `WeekCalendar` (Sunday-first week arithmetic), `WeekTimelineEngine` (expand a template into a dated week, build the 7-day timeline, free gaps, hard-block conflicts, planned-vs-actual comparison, plan diff).
+- `lib/engines/gap_detection_engine.dart` — time-side Gap Detection (free time, unused-while-backlog, overload, conflicts, insufficient time, unplaced tasks with the scheduler's reason, backlog, deadline/late risk) with Arabic descriptions.
+- `lib/engines/weekly_planner.dart` — pure orchestration: study windows − hard fixed blocks → `SchedulingEngine` → timeline → gap findings; `replan()` returns the new plan plus a `ReplanExplanation` (reason, per-task changes, remaining gaps).
+- `WeeklyTemplateEntries` table (the 37th table) + `WeeklyTemplateRepository`: the student's recurring weekly template (school timetable, commute, sleep, meals, commitments, extra classes). Rows are user input only (`source` is not settable); the repository validates before writing; **no default timetable is ever created**.
+- `schemaVersion` 2 → 3, with an `onUpgrade` branch `if (from < 3) m.createTable(db.weeklyTemplateEntries)`. `export_import_service.dart`'s table-name set gained `weekly_template_entries`; `schema_integrity_test.dart` now expects 37 tables.
+
+**Week convention.** The product decision is "the week starts on Sunday". It is applied as a *boundary/ordering* rule by `WeekCalendar` only. Stored `dayOfWeek` values (both `Availabilities` and `WeeklyTemplateEntries`) keep Dart's native 1 = Monday … 7 = Sunday, which is the convention already adopted in DEVIATION-7, so no existing meaning changes.
+
+**Not done / not claimed (still open):**
+- Gap Detection's knowledge-side findings (unstudied or unmastered lessons, weak prerequisites, overdue reviews, repeated errors, neglected subjects) need Mastery/Memory/Error/KnowledgeGraph wiring (integration phase).
+- Nothing reads the database into the planner yet beyond `WeeklyTemplateRepository.readSlotsForStudent`; a service will feed the planner from tasks, exams, priorities and availabilities (integration phase). No UI uses these engines yet.
+- The v2 → v3 migration is covered by `test/migration_v3_test.dart` (a real file database made to look like v2, reopened with the current code). It has not been run yet; only a GitHub Actions run can confirm it.
+- Daily/monthly/yearly planning, Recovery/Emergency wrapping, Workload ceilings and Subject Balance are not part of this batch.
+
+**Status:** UNVERIFIED locally — no Dart/Flutter SDK in the authoring environment. Verified only by the GitHub Actions run of `flutter-test.yml`.
+
+---
+
+## DEVIATION-17 — Phase 1 data model = schema v4; WeekCalendar is the official conversion layer; export format 2 (2026-10-03)
+
+**Why v4, not v3.** Phase 1's data-model additions were planned earlier as "schema v3". Phase 2 then used v3 for `WeeklyTemplateEntries` (DEVIATION-16). Reusing v3 would have meant two different shapes sharing one version number and would have broken the migration chain, so Phase 1 is renumbered **v4**. No requirement was dropped; no dependency version was touched. The chain is now `v1 → v2 → v3 → v4`, one `if (from < N)` branch per step in `migration_strategy.dart`.
+
+**What v4 adds (all additive; nothing removed or renamed):**
+- 4 new tables (the 38th–41st), in `lib/database/tables/calendar_and_goal_tables.dart`, every one with `AuditColumns`:
+  - `EnergyFocusLogs(studentId, loggedAt, energyLevel, focusLevel)`
+  - `AcademicTerms(academicYearId, name, startDate, endDate)`
+  - `Holidays(academicYearId, name, startDate, endDate, source='USER_INPUT')`
+  - `Goals(studentId, title, subjectId?, targetDate?, status='active')`
+- 3 new **nullable** columns: `MasteryStates.confidence` (real), `MasteryStates.observationCount` (int), `Subjects.curriculumVersionId` (FK → `CurriculumVersions`).
+- `schemaVersion` 3 → 4; `kMutableStateTables` gained the 4 table names.
+
+**Decisions taken here (documented, not official numbers):**
+- Column sets of the 4 new tables were chosen as the minimum consistent with the rest of the schema; nothing beyond what the Phase 1 list names was added.
+- `energyLevel` / `focusLevel` use a 1 (lowest) … 5 (highest) integer scale. It is an application-level convention validated by the future writing repository (Workload + Energy phase), not a SQL CHECK (DEVIATION-2).
+- The 3 new columns are NULLABLE and old rows get NULL — **NULL means "unknown", never 0 and never an invented value.** Phase 1 only provides the columns; the Mastery phase decides how `confidence` (which is not accuracy) and `observationCount` are computed and written. `MasteryRepository.recomputeFrom` is intentionally unchanged.
+- Status vocabularies for `Goals.status` (active | achieved | dropped) are Dart-level, not SQL CHECKs (DEVIATION-2).
+
+**WeekCalendar.** `WeekCalendar` (weekly_timeline_engine.dart) is now the single conversion layer between the stored day number (Dart weekday, 1 = Monday … 7 = Sunday — storage is unchanged, old rows keep their meaning) and the Sunday-first index (Sunday = 0 … Saturday = 6): `indexFromStoredDay`, `storedDayFromIndex`, `storedDayOf`, `storedDayMatches`, `addDays`. `expandTemplate` and `RealityLayerDomainService` (`resolveAvailabilityForDay`, the day loop) use it instead of hand-written `% 7` / `weekday` / `Duration(days: 1)`. Behavior for valid rows is unchanged; an out-of-range stored day was silently ignored before and is still ignored by the Reality Layer (`storedDayMatches` returns false).
+
+**Export / import.**
+- Export FORMAT is now `2` (it contains the v4 tables/columns). Import accepts formats `{1, 2}`; a newer or non-integer version is rejected. A format-1 file (written at schema ≤ v3) imports: tables it lacks are skipped, columns it lacks become NULL/default. One consequence worth knowing: for a row that exists locally and is older than the file's row, Last-Write-Wins replaces the whole row, so a v4 value (e.g. a local `confidence`) is replaced by NULL if the older-format file's row wins.
+- `importAll` now sets `PRAGMA defer_foreign_keys = ON` inside its transaction. Reason: tables are visited in `allTables` order and rows may reference tables visited later (Students → AcademicYears, and now Subjects → CurriculumVersions). A truly dangling reference still fails at COMMIT and the whole import rolls back. (`restoreReplacingAll` already did this.) This also removes an ordering hazard that existed before v4 for plain `importAll` into an empty database.
+- UUID, LWW for mutable tables, append-only union: unchanged.
+
+**Tests.** `test/week_calendar_test.dart`, `test/phase1_v4_test.dart` (new tables, FKs, NULL defaults, export 2, format-1 import, rejection, Reality Layer on the Sunday-first week), `test/migration_v4_test.dart` (v3 → v4 on a real SQLite file), `test/fixtures/legacy_shapes.dart` (helpers that make a fresh DB look like v3/v2). `test/migration_v3_test.dart` was updated: it used to assert `user_version == 3`, which is no longer the end state of a v2 file (it asserts the current `schemaVersion`) and it now builds its "v2 file" through the shared helper. `test/schema_integrity_test.dart` expects 41 tables.
+
+**What the migration tests are and are not.** They emulate an old file (tables dropped, added columns removed by rebuilding the table with only its old columns, `user_version` set). That is not a file that was ever shipped, and the rebuilt tables lose their constraints. They do not replace a test on a real old browser (WASM/IndexedDB) database.
+
+**Not changed:** Weekly Timeline / Gap Detection / Weekly Planner (DEVIATION-16, including the Saturday → Sunday carry-in) are kept as they were. No dependency, workflow or UI file changed.
+
+**Status:** UNVERIFIED — no Dart/Flutter SDK in the authoring environment. Verified only by a GitHub Actions run (build_runner, analyze, tests).
