@@ -9,14 +9,21 @@ import 'package:student_app/database/app_database.dart';
 /// added columns removed by rebuilding the table with only its old columns)
 /// and sets `user_version`. Rows already in the kept columns are preserved.
 ///
-/// The rebuilt tables lose their constraints (CREATE TABLE ... AS SELECT),
-/// which is irrelevant to what the upgrade branches do (they add tables and
-/// nullable columns) but means this is NOT a byte-exact old schema.
+/// The rebuilt tables are re-created from an EXPLICIT old-shape DDL that keeps
+/// PRIMARY KEY, UNIQUE and FOREIGN KEY constraints. This matters: a rebuild
+/// with `CREATE TABLE ... AS SELECT` drops the primary key, and once
+/// `PRAGMA foreign_keys = ON` (set by the app's `beforeOpen`) any statement
+/// touching a table that references the rebuilt one fails with
+/// "foreign key mismatch" (SQLite requires the parent key to be a PK/UNIQUE).
+/// Types/defaults follow what Drift generates; it is still an emulation, not a
+/// byte-exact copy of a file that was ever shipped.
 
-Future<void> _rebuildWithColumns(
-    AppDatabase db, String table, List<String> keepColumns) async {
+Future<void> _rebuildWithDdl(AppDatabase db, String table, String createSql,
+    List<String> keepColumns) async {
   final cols = keepColumns.join(', ');
-  await db.customStatement('CREATE TABLE ${table}_legacy AS '
+  await db.customStatement(createSql.replaceFirst(
+      'CREATE TABLE $table ', 'CREATE TABLE ${table}_legacy '));
+  await db.customStatement('INSERT INTO ${table}_legacy ($cols) '
       'SELECT $cols FROM $table');
   await db.customStatement('DROP TABLE $table');
   await db.customStatement('ALTER TABLE ${table}_legacy RENAME TO $table');
@@ -33,24 +40,49 @@ Future<void> makeLookLikeV3(AppDatabase db) async {
   ]) {
     await db.customStatement('DROP TABLE $t');
   }
-  await _rebuildWithColumns(db, 'mastery_states', const [
-    'id',
-    'created_at',
-    'updated_at',
-    'sync_version',
-    'student_id',
-    'knowledge_node_id',
-    'probability',
-    'last_updated_from_event_id',
-  ]);
-  await _rebuildWithColumns(db, 'subjects', const [
-    'id',
-    'created_at',
-    'updated_at',
-    'sync_version',
-    'name',
-    'education_level_id',
-  ]);
+  await _rebuildWithDdl(
+      db,
+      'mastery_states',
+      'CREATE TABLE mastery_states ('
+      'id TEXT NOT NULL, '
+      'created_at INTEGER NOT NULL, '
+      'updated_at INTEGER NOT NULL, '
+      'sync_version INTEGER NOT NULL DEFAULT 0, '
+      'student_id TEXT NOT NULL REFERENCES students (id), '
+      'knowledge_node_id TEXT NOT NULL REFERENCES knowledge_nodes (id), '
+      'probability REAL NOT NULL, '
+      'last_updated_from_event_id TEXT NOT NULL REFERENCES events (id), '
+      'PRIMARY KEY (id), '
+      'UNIQUE (student_id, knowledge_node_id))',
+      const [
+        'id',
+        'created_at',
+        'updated_at',
+        'sync_version',
+        'student_id',
+        'knowledge_node_id',
+        'probability',
+        'last_updated_from_event_id',
+      ]);
+  await _rebuildWithDdl(
+      db,
+      'subjects',
+      'CREATE TABLE subjects ('
+      'id TEXT NOT NULL, '
+      'created_at INTEGER NOT NULL, '
+      'updated_at INTEGER NOT NULL, '
+      'sync_version INTEGER NOT NULL DEFAULT 0, '
+      'name TEXT NOT NULL, '
+      'education_level_id TEXT NOT NULL REFERENCES education_levels (id), '
+      'PRIMARY KEY (id))',
+      const [
+        'id',
+        'created_at',
+        'updated_at',
+        'sync_version',
+        'name',
+        'education_level_id',
+      ]);
   await db.customStatement('PRAGMA user_version = 3');
 }
 
