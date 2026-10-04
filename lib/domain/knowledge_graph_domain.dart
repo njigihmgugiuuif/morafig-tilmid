@@ -1,3 +1,5 @@
+import 'enums.dart';
+import '../repositories/curriculum_repository.dart';
 import '../repositories/mastery_repository.dart';
 import '../repositories/reality_and_prerequisite_repositories.dart';
 
@@ -18,11 +20,32 @@ import '../repositories/reality_and_prerequisite_repositories.dart';
 /// already has cycle-safe traversal machinery (`_reaches`, private) that a
 /// future transitive-closure version of this method could reuse; flagged
 /// as follow-up, not silently assumed to already be handled.
+/// An OFFICIAL prerequisite edge that was deliberately NOT consumed because
+/// the curriculum status of the node it belongs to is not ACTIVE (UNKNOWN,
+/// CONFLICT, FROZEN, REPEALED, or not linked to any curriculum version).
+/// Reported, never silently dropped (DEVIATION-18).
+class IgnoredPrerequisiteEdge {
+  const IgnoredPrerequisiteEdge({
+    required this.requiresNodeId,
+    required this.status,
+    required this.reason,
+  });
+
+  final String requiresNodeId;
+  final PolicyStatus status;
+  final String reason;
+}
+
 class PrerequisiteSatisfactionResult {
   const PrerequisiteSatisfactionResult({
     required this.satisfied,
     required this.blockingNodeIds,
+    this.ignoredEdges = const [],
   });
+
+  /// Official edges excluded by the curriculum guard (see
+  /// [IgnoredPrerequisiteEdge]). Empty when nothing was excluded.
+  final List<IgnoredPrerequisiteEdge> ignoredEdges;
 
   final bool satisfied;
 
@@ -34,10 +57,20 @@ class PrerequisiteSatisfactionResult {
 }
 
 class KnowledgeGraphDomainService {
-  const KnowledgeGraphDomainService(this._prerequisites, this._mastery);
+  /// [curriculum] is REQUIRED (no default, no null): the curriculum guard
+  /// cannot be skipped by forgetting to pass it. An edge whose relationType
+  /// is `official` is only consumed when the node it belongs to has an
+  /// ACTIVE effective curriculum status; `derived` / `proposed` edges are
+  /// the student's / engineering's own and are consumed as before.
+  const KnowledgeGraphDomainService(
+    this._prerequisites,
+    this._mastery, {
+    required CurriculumRepository curriculum,
+  }) : _curriculum = curriculum;
 
   final PrerequisiteRepository _prerequisites;
   final MasteryRepository _mastery;
+  final CurriculumRepository _curriculum;
 
   Future<PrerequisiteSatisfactionResult> checkDirectHardPrerequisites({
     required String studentId,
@@ -53,7 +86,20 @@ class KnowledgeGraphDomainService {
         await _prerequisites.readDirectHardPrerequisites(knowledgeNodeId);
 
     final blocking = <String>[];
+    final ignored = <IgnoredPrerequisiteEdge>[];
+    EffectiveCurriculumStatus? ownerStatus;
     for (final edge in edges) {
+      if (edge.relationType == PrerequisiteRelationType.official.name) {
+        ownerStatus ??= await _curriculum.effectiveStatusForNode(knowledgeNodeId);
+        if (!ownerStatus.usableForCalculation) {
+          ignored.add(IgnoredPrerequisiteEdge(
+            requiresNodeId: edge.requiresNodeId,
+            status: ownerStatus.status,
+            reason: ownerStatus.reason,
+          ));
+          continue;
+        }
+      }
       final state = await _mastery.read(studentId, edge.requiresNodeId);
       final probability = state?.probability;
       // Unobserved (state == null) is treated as NOT satisfied — an
@@ -68,6 +114,7 @@ class KnowledgeGraphDomainService {
     return PrerequisiteSatisfactionResult(
       satisfied: blocking.isEmpty,
       blockingNodeIds: blocking,
+      ignoredEdges: ignored,
     );
   }
 }
