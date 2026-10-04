@@ -29,8 +29,41 @@ Future<void> _rebuildWithDdl(AppDatabase db, String table, String createSql,
   await db.customStatement('ALTER TABLE ${table}_legacy RENAME TO $table');
 }
 
+/// Makes [db] look like a schema-v4 file (before the Curriculum phase, v5):
+/// curriculum_versions without country_code / version_label.
+Future<void> makeLookLikeV4(AppDatabase db) async {
+  await db.customStatement('PRAGMA foreign_keys = OFF');
+  await _rebuildWithDdl(
+      db,
+      'curriculum_versions',
+      'CREATE TABLE curriculum_versions ('
+      'id TEXT NOT NULL, '
+      'created_at INTEGER NOT NULL, '
+      'updated_at INTEGER NOT NULL, '
+      'sync_version INTEGER NOT NULL DEFAULT 0, '
+      'academic_year_id TEXT NOT NULL REFERENCES academic_years (id), '
+      'status TEXT NOT NULL, '
+      'source_policy_document_id TEXT NOT NULL REFERENCES policy_documents (id), '
+      'effective_from INTEGER NULL, '
+      'effective_to INTEGER NULL, '
+      'PRIMARY KEY (id))',
+      const [
+        'id',
+        'created_at',
+        'updated_at',
+        'sync_version',
+        'academic_year_id',
+        'status',
+        'source_policy_document_id',
+        'effective_from',
+        'effective_to',
+      ]);
+  await db.customStatement('PRAGMA user_version = 4');
+}
+
 /// Makes [db] look like a schema-v3 file (before Phase 1 v4).
 Future<void> makeLookLikeV3(AppDatabase db) async {
+  await makeLookLikeV4(db);
   await db.customStatement('PRAGMA foreign_keys = OFF');
   for (final t in const [
     'energy_focus_logs',
