@@ -31,8 +31,10 @@ class CurriculumDomainService {
   Future<double?> officialCoefficientSignal({
     required String subjectLoadId,
     required double maxPlausibleCoefficient,
+    DateTime? asOf,
   }) async {
-    final coefficient = await _repo.getUsableCoefficient(subjectLoadId);
+    final coefficient =
+        await _repo.getUsableCoefficient(subjectLoadId, asOf: asOf);
     if (coefficient == null) return null;
     return normalizeCoefficient(coefficient, maxPlausibleCoefficient);
   }
