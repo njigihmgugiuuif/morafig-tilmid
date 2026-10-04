@@ -31,6 +31,14 @@ class CurriculumVersions extends Table with AuditColumns {
       text().references(PolicyDocuments, #id)();
   DateTimeColumn get effectiveFrom => dateTime().nullable()();
   DateTimeColumn get effectiveTo => dateTime().nullable()();
+  // Added in schema v5 (DEVIATION-18). Both nullable: NULL = unknown, never
+  // a guessed value, and no country or label is ever pre-filled by the app.
+  // `countryCode` is a 2-letter code (normalized to upper case by
+  // CurriculumRepository.createVersion) saying which country's system this
+  // edition describes; `versionLabel` is the edition's human label exactly
+  // as the source document names it.
+  TextColumn get countryCode => text().nullable()();
+  TextColumn get versionLabel => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
