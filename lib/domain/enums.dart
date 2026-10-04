@@ -29,6 +29,29 @@ enum PolicyStatus {
   bool get usableForCalculation => this == PolicyStatus.active;
 
   String get toDb => name;
+
+  /// How restrictive a status is when two statuses apply to the same value
+  /// (a curriculum version's status and a per-subject override): the MORE
+  /// restrictive one always wins, so a looser status can never "rescue"
+  /// data that a stricter one has withdrawn. ACTIVE < UNKNOWN < FROZEN <
+  /// CONFLICT < REPEALED.
+  int get severity {
+    switch (this) {
+      case PolicyStatus.active:
+        return 0;
+      case PolicyStatus.unknown:
+        return 1;
+      case PolicyStatus.frozen:
+        return 2;
+      case PolicyStatus.conflict:
+        return 3;
+      case PolicyStatus.repealed:
+        return 4;
+    }
+  }
+
+  static PolicyStatus mostRestrictive(PolicyStatus a, PolicyStatus b) =>
+      a.severity >= b.severity ? a : b;
 }
 
 enum TaskCompletionStatus { notStarted, partial, complete }
