@@ -347,3 +347,26 @@ DAO, repository, or test was removed or renamed.
 **Not changed:** Weekly Timeline / Gap Detection / Weekly Planner (DEVIATION-16, including the Saturday → Sunday carry-in) are kept as they were. No dependency, workflow or UI file changed.
 
 **Status:** UNVERIFIED — no Dart/Flutter SDK in the authoring environment. Verified only by a GitHub Actions run (build_runner, analyze, tests).
+
+## DEVIATION-18 — Curriculum phase = schema v5; effective status; Knowledge Graph guard (2026-10-04)
+
+**Why this phase.** The Curriculum hierarchy (year → level → stream → subject → unit → lesson → knowledge node → prerequisite, with coefficient, source, effective dates, version and status) already existed in the schema. The two real gaps were (1) no place to record WHICH COUNTRY an edition describes and the edition's label as its source names it, and (2) the guards only looked at a `SubjectLoad`'s own status: an ACTIVE load inside a REPEALED/FROZEN version still leaked its coefficient, and the content graph (subjects/units/lessons/nodes/prerequisites) had no guard at all.
+
+**Schema v5 (additive; nothing removed or renamed).** `CurriculumVersions` gains two NULLABLE columns, `countryCode` and `versionLabel`. No new table. Old rows get NULL = unknown; nothing is pre-filled and no country is defaulted. Migration chain is `v1 → v2 → v3 → v4 → v5`, one `if (from < N)` branch per step. Export FORMAT stays `2` (export is column-generic; a format-2 file written before v5 imports with the two columns NULL, as for any missing column).
+
+**Decisions (documented, not official facts):**
+- Effective status = the MOST RESTRICTIVE of the load's status and its version's status (`PolicyStatus.severity`: ACTIVE < UNKNOWN < FROZEN < CONFLICT < REPEALED). Guard #2 behaviour is otherwise unchanged (REPEALED throws, other non-ACTIVE → null).
+- Content (subject → unit → lesson → node) takes the status of the version its subject is linked to. A subject linked to no version has no official provenance → UNKNOWN, never ACTIVE. This only affects *official* signals; the student's own content and tasks keep working.
+- Guard #1 for versions: `createVersion` / `changeVersionStatus` refuse ACTIVE unless the source `PolicyDocument` is `primaryVerified` or `secondaryConfirmed`; REPEALED is terminal. (Rows inserted directly, as the test seed does, bypass this by design — repositories are the choke point.)
+- `getUsableCoefficient(..., asOf:)`: when `asOf` is given, a version not yet effective or already ended yields null; a version with NO dates is never expired by inference. Without `asOf`, behaviour is as before.
+- Knowledge Graph: `KnowledgeGraphDomainService` now REQUIRES a `CurriculumRepository`. A hard prerequisite edge with `relationType = official` is consumed only if its node's effective status is ACTIVE; otherwise it is EXCLUDED and REPORTED in `PrerequisiteSatisfactionResult.ignoredEdges` (not thrown — one stale official edge must not break scheduling for the whole student). `derived` / `proposed` edges are the student's / engineering's own and are consumed as before. Transitive closure is still follow-up.
+- «الأولوية» (priority) is NOT stored as a curriculum column: it is computed by the Priority Engine from the official coefficient, `isExaminable`, and the other signals, merged once. Storing one would invent an official-looking number. Awaiting the owner's decision.
+- Country/label/dates are never seeded. No official Algerian value was added anywhere; anything undocumented stays UNKNOWN.
+
+**New API (CurriculumRepository):** `createVersion`, `changeVersionStatus`, `ingestSubject`, `linkSubjectToVersion`, `effectiveStatusForSubject / ForNode / ForSubjectLoad`, `readTreeForVersion`, static `windowStateOf`, `normalizeCountryCode`, `normalizeLabel`.
+
+**Tests.** `test/curriculum_system_test.dart` (new), `test/migration_v5_test.dart` (new, real SQLite file). `test/fixtures/legacy_shapes.dart` gained `makeLookLikeV4` (and `makeLookLikeV3` now goes through it). `test/migration_v4_test.dart`: the single assertion on the current schema version changed 4 → 5 (the schema is now v5); the v3 → v4 data checks are untouched. No test was removed.
+
+**Not changed:** UI, Student, Mastery, Memory, Weekly Timeline, Gap Detection, Scheduling, dependencies, workflows.
+
+**Status:** UNVERIFIED — no Dart/Flutter SDK in the authoring environment. Verified only by a GitHub Actions run (build_runner, analyze, tests).
