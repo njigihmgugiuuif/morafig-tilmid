@@ -62,6 +62,17 @@ MigrationStrategy buildMigrationStrategy(AppDatabase db) {
         await m.addColumn(db.masteryStates, db.masteryStates.observationCount);
         await m.addColumn(db.subjects, db.subjects.curriculumVersionId);
       }
+      if (from < 5) {
+        // v5: Curriculum phase. A curriculum edition gets the country it
+        // describes and its source-given label. Purely additive: 2 NULLABLE
+        // columns on curriculum_versions, no new table, no existing row is
+        // touched and no value is invented for old rows (NULL = unknown).
+        // See DEVIATIONS.md, DEVIATION-18.
+        await m.addColumn(
+            db.curriculumVersions, db.curriculumVersions.countryCode);
+        await m.addColumn(
+            db.curriculumVersions, db.curriculumVersions.versionLabel);
+      }
     },
     beforeOpen: (details) async {
       await db.customStatement('PRAGMA foreign_keys = ON;');
