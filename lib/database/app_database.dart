@@ -17,7 +17,8 @@ part 'app_database.g.dart';
 /// approved schema + the deliberate StudySession/ScheduleEntry unification
 /// already documented, counted as one, + WeeklyTemplateEntries added in
 /// schema v3 — DEVIATION-16 — + EnergyFocusLogs, AcademicTerms, Holidays and
-/// Goals added in schema v4 — DEVIATION-17).
+/// Goals added in schema v4 — DEVIATION-17; schema v5 adds two nullable
+/// columns to CurriculumVersions, no new table — DEVIATION-18).
 @DriftDatabase(
   tables: [
     // Raw/Reference
@@ -61,7 +62,7 @@ class AppDatabase extends _$AppDatabase {
   // DEVIATION-13.
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => buildMigrationStrategy(this);
