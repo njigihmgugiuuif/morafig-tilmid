@@ -18,7 +18,8 @@ part 'app_database.g.dart';
 /// already documented, counted as one, + WeeklyTemplateEntries added in
 /// schema v3 — DEVIATION-16 — + EnergyFocusLogs, AcademicTerms, Holidays and
 /// Goals added in schema v4 — DEVIATION-17; schema v5 adds two nullable
-/// columns to CurriculumVersions, no new table — DEVIATION-18).
+/// columns to CurriculumVersions, no new table — DEVIATION-18; schema v6
+/// adds three nullable columns to Students, no new table — DEVIATION-19).
 @DriftDatabase(
   tables: [
     // Raw/Reference
@@ -62,7 +63,7 @@ class AppDatabase extends _$AppDatabase {
   // DEVIATION-13.
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => buildMigrationStrategy(this);
