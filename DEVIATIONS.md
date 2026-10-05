@@ -370,3 +370,26 @@ DAO, repository, or test was removed or renamed.
 **Not changed:** UI, Student, Mastery, Memory, Weekly Timeline, Gap Detection, Scheduling, dependencies, workflows.
 
 **Status:** UNVERIFIED — no Dart/Flutter SDK in the authoring environment. Verified only by a GitHub Actions run (build_runner, analyze, tests).
+
+## DEVIATION-19 — Student Integration phase = schema v6; Student → Core gate (2026-10-04)
+
+**Why this phase.** The student row only knew its name, its academic year and its sleep floor. It had no place to say which education level / stream the student is in, nor which `CurriculumVersion` they follow, so the Core could not tell *which* curriculum belongs to *this* student, and several services read `students` directly.
+
+**Schema v6 (additive; nothing removed or renamed).** `Students` gains three NULLABLE foreign keys: `educationLevelId → EducationLevels`, `streamId → Streams`, `curriculumVersionId → CurriculumVersions`. Old rows get NULL = unknown; nothing is pre-filled. Migration chain is `v1 → … → v5 → v6`, one `if (from < 6)` branch with three `addColumn`. Export FORMAT stays `2` (column-generic). No other table changed.
+
+**Decisions (documented, not official facts):**
+- `StudentRepository` is the single door to student data for the Core: `readProfile`, `setAcademicTrack` (stream must belong to the level; omitting the stream clears it), `setCurrentAcademicYear` (unlinks the curriculum version if it belongs to another year), `setCurriculumVersion` (refuses a missing version, a version of another academic year, and any version whose status is not ACTIVE — `PolicyDataGuardViolation`), `clearCurriculumVersion`.
+- `StudentContextService` (domain) answers "may the Core consume the student's curriculum?": not linked / version missing / version from another year → UNKNOWN; otherwise the version's status; effective dates are checked only when `asOf` is given. `usableCurriculumVersionId` returns null unless ACTIVE (and inside its window); REPEALED throws, as in Guard #2. A version existing in the DB is therefore never enough on its own.
+- A link is accepted only when the version is ACTIVE *now*; if the version is later frozen/repealed the stored link stays, but the gate stops the Core from using it (the status is read live, not copied).
+- `ContentRepository.getOrCreateDefaultLevel` prefers the student's own level; it also no longer crashes when more than one level exists (it used `getSingleOrNull`).
+- `IntelligenceService` reads the student through `StudentRepository` instead of `students` directly.
+
+**Linked now:** student ↔ academic year ↔ level ↔ stream ↔ curriculum version (gated); default level for new content; Mastery/Memory/Priority keep working for a student with a full profile.
+
+**Gaps (not invented, left for later phases):** `officialCoefficient` / `learningPriority` / `urgencyImportance` priority signals stay null (wiring needs a verified normalisation ceiling and SubjectLoad data); no UI captures level/stream/version (onboarding unchanged); Knowledge Graph does not yet check that an official edge's node belongs to the student's own version; Exams stay global (not per level); `AppState` bootstrap still reads `students` directly (UI-state layer untouched).
+
+**Tests.** `test/student_integration_test.dart` (new), `test/migration_v6_test.dart` (new, real SQLite file). `legacy_shapes.dart` gained `makeLookLikeV5` (v4/v3/v2 chain goes through it). `migration_v4_test.dart` / `migration_v5_test.dart`: schema-version assertions now compare with `db.schemaVersion` and `>= 5`. No test removed.
+
+**Not changed:** UI, Curriculum v5 logic, Weekly Timeline, Gap Detection, Scheduling, dependencies, workflows, `pubspec.yaml`.
+
+**Status:** UNVERIFIED — no Dart/Flutter SDK in the authoring environment. Verified only by a GitHub Actions run (build_runner, analyze, tests).
