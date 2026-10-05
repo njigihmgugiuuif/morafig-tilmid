@@ -54,13 +54,13 @@ void main() {
       await db.close();
 
       // 3. Reopen with the current code: onUpgrade(3 -> current) must run
-      // the v4 branch and then the v5 branch (the schema is now v5, see
-      // DEVIATION-18; this test still exercises the v3 -> v4 step).
+      // the v4 branch and then every later branch (the schema is now v6, see
+      // DEVIATION-18/19; this test still exercises the v3 -> v4 step).
       db = AppDatabase(NativeDatabase(file));
 
       final version = await db.customSelect('PRAGMA user_version;').getSingle();
       expect(version.data['user_version'], equals(db.schemaVersion));
-      expect(db.schemaVersion, equals(5));
+      expect(db.schemaVersion, greaterThanOrEqualTo(5));
 
       // New tables exist, are empty and accept rows.
       expect(await db.select(db.energyFocusLogs).get(), isEmpty);

@@ -38,8 +38,11 @@ void main() {
       final repo = CurriculumRepository(db);
 
       final version = await db.customSelect('PRAGMA user_version;').getSingle();
-      expect(version.data['user_version'], equals(5));
-      expect(db.schemaVersion, equals(5));
+      // The file is upgraded all the way to the current schema (v6 added
+      // the Student Integration columns, DEVIATION-19); this test is about
+      // the v4 -> v5 step, so it only requires >= 5.
+      expect(version.data['user_version'], equals(db.schemaVersion));
+      expect(db.schemaVersion, greaterThanOrEqualTo(5));
 
       final after = await repo.readCurriculumVersion(seed.curriculumVersionId);
       expect(after, isNotNull);
