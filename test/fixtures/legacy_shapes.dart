@@ -29,9 +29,39 @@ Future<void> _rebuildWithDdl(AppDatabase db, String table, String createSql,
   await db.customStatement('ALTER TABLE ${table}_legacy RENAME TO $table');
 }
 
+/// Makes [db] look like a schema-v5 file (before Student Integration, v6):
+/// students without education_level_id / stream_id / curriculum_version_id.
+Future<void> makeLookLikeV5(AppDatabase db) async {
+  await db.customStatement('PRAGMA foreign_keys = OFF');
+  await _rebuildWithDdl(
+      db,
+      'students',
+      'CREATE TABLE students ('
+      'id TEXT NOT NULL, '
+      'created_at INTEGER NOT NULL, '
+      'updated_at INTEGER NOT NULL, '
+      'sync_version INTEGER NOT NULL DEFAULT 0, '
+      'full_name_or_nickname TEXT NOT NULL, '
+      'current_academic_year_id TEXT NOT NULL REFERENCES academic_years (id), '
+      'sleep_floor_min_minutes INTEGER NOT NULL DEFAULT 420, '
+      'PRIMARY KEY (id))',
+      const [
+        'id',
+        'created_at',
+        'updated_at',
+        'sync_version',
+        'full_name_or_nickname',
+        'current_academic_year_id',
+        'sleep_floor_min_minutes',
+      ]);
+  await db.customStatement('PRAGMA user_version = 5');
+}
+
 /// Makes [db] look like a schema-v4 file (before the Curriculum phase, v5):
-/// curriculum_versions without country_code / version_label.
+/// curriculum_versions without country_code / version_label (and, because
+/// v4 predates it too, students without the v6 columns).
 Future<void> makeLookLikeV4(AppDatabase db) async {
+  await makeLookLikeV5(db);
   await db.customStatement('PRAGMA foreign_keys = OFF');
   await _rebuildWithDdl(
       db,
