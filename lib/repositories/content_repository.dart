@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 
 import '../database/app_database.dart';
+import 'student_repository.dart';
 
 /// CRUD for the raw content graph (Subjects → Units → Lessons →
 /// KnowledgeNodes). Previous phases built the *policy/coefficient* layer
@@ -121,7 +122,19 @@ class ContentRepository {
   /// student-editable EducationLevels row, not a hidden hardcoded value
   /// read from Dart code elsewhere).
   Future<EducationLevel> getOrCreateDefaultLevel() async {
-    final existing = await _db.select(_db.educationLevels).getSingleOrNull();
+    // Student Integration (DEVIATION-19): when the student has said which
+    // level they follow, new content goes under THAT level, not under a
+    // generic placeholder.
+    final student = await StudentRepository(_db).readExisting();
+    final ownLevelId = student?.educationLevelId;
+    if (ownLevelId != null) {
+      final own = await (_db.select(_db.educationLevels)
+            ..where((t) => t.id.equals(ownLevelId)))
+          .getSingleOrNull();
+      if (own != null) return own;
+    }
+    final existing = await (_db.select(_db.educationLevels)..limit(1))
+        .getSingleOrNull();
     if (existing != null) return existing;
     return _db.into(_db.educationLevels).insertReturning(
           EducationLevelsCompanion.insert(name: 'المستوى الدراسي', order: 0),
