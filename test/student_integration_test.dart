@@ -91,7 +91,9 @@ void main() {
         expect(p.academicYear.id, equals(s.currentAcademicYearId));
         expect(p.educationLevel, isNull);
         expect(p.curriculumVersionId, isNull);
-        expect(
+        // Awaited: the async call must finish (and roll back) BEFORE the
+        // database is closed in `finally`.
+        await expectLater(
           () => repo.createInitialStudent(
               fullNameOrNickname: 'TEST-SECOND', sleepFloorMinMinutes: 420),
           throwsStateError,
