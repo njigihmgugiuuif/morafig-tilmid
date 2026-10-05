@@ -73,6 +73,16 @@ MigrationStrategy buildMigrationStrategy(AppDatabase db) {
         await m.addColumn(
             db.curriculumVersions, db.curriculumVersions.versionLabel);
       }
+      if (from < 6) {
+        // v6: Student Integration. The student gets the level, stream and
+        // curriculum version they follow. Purely additive: 3 NULLABLE
+        // columns on students, no new table, no existing row is touched and
+        // no value is invented for old rows (NULL = unknown). See
+        // DEVIATIONS.md, DEVIATION-19.
+        await m.addColumn(db.students, db.students.educationLevelId);
+        await m.addColumn(db.students, db.students.streamId);
+        await m.addColumn(db.students, db.students.curriculumVersionId);
+      }
     },
     beforeOpen: (details) async {
       await db.customStatement('PRAGMA foreign_keys = ON;');
