@@ -13,6 +13,7 @@ import '../repositories/explanation_and_override_repositories.dart';
 import '../repositories/mastery_repository.dart';
 import '../repositories/memory_repository.dart';
 import '../repositories/priority_repository.dart';
+import '../repositories/student_repository.dart';
 
 /// Self-assessed understanding captured when the student completes a task.
 /// Stored in the TaskCompleted event payload as one of these strings.
@@ -102,7 +103,7 @@ class IntelligenceService {
     final task = await (_db.select(_db.tasks)
           ..where((t) => t.id.equals(taskId)))
         .getSingleOrNull();
-    final student = await _db.select(_db.students).getSingleOrNull();
+    final student = await StudentRepository(_db).readExisting();
     if (task == null || student == null) return;
     final nodeId = task.knowledgeNodeId;
 
@@ -157,7 +158,7 @@ class IntelligenceService {
   /// Recomputes the Priority of every open task from real signals.
   /// Tasks with no available signal at all get no priority yet.
   Future<void> refreshPriorities() async {
-    final student = await _db.select(_db.students).getSingleOrNull();
+    final student = await StudentRepository(_db).readExisting();
     if (student == null) return;
 
     final now = _clock().toUtc();
