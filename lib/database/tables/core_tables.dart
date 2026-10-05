@@ -1,6 +1,12 @@
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
+// Students.curriculumVersionId references CurriculumVersions (schema v6,
+// DEVIATION-19). curriculum_tables.dart already imports this file, so the two
+// table files import each other; Dart allows that, and only the table classes
+// (types) are referenced, never evaluated at import time.
+import 'curriculum_tables.dart';
+
 const uuidGen = Uuid();
 
 /// Every table in this Foundation shares these four columns. Drift has no
@@ -24,6 +30,16 @@ class Students extends Table with AuditColumns {
       text().references(AcademicYears, #id)();
   IntColumn get sleepFloorMinMinutes =>
       integer().withDefault(const Constant(420))(); // 7h default, Registry-owned
+  // Added in schema v6 (DEVIATION-19). All three are NULLABLE: NULL means
+  // "the student has not said / not known", never a guessed value. Only
+  // StudentRepository writes them, and it validates them (the stream must
+  // belong to the level; the curriculum version must be ACTIVE and belong
+  // to the student's current academic year).
+  TextColumn get educationLevelId =>
+      text().nullable().references(EducationLevels, #id)();
+  TextColumn get streamId => text().nullable().references(Streams, #id)();
+  TextColumn get curriculumVersionId =>
+      text().nullable().references(CurriculumVersions, #id)();
 
   @override
   Set<Column> get primaryKey => {id};
