@@ -113,7 +113,10 @@ void main() {
       final explanation = await (db.select(db.explanations)
             ..where((t) => t.id.equals(priority.explanationId)))
           .getSingle();
-      expect(explanation.factorsJson, contains('personalWeakness'));
+      expect(explanation.factorsJson, contains('masteryGap'));
+      // The pre-A-0 name is no longer written (old rows keep it, read via
+      // canonicalPrioritySignalName).
+      expect(explanation.factorsJson, isNot(contains('personalWeakness')));
       // Unknown signals are listed as excluded, never invented.
       expect(explanation.excludedFactorsJson, contains('officialCoefficient'));
     });
@@ -138,7 +141,7 @@ void main() {
       final priority = await PriorityRepository(db).read(open.id);
       expect(priority, isNotNull);
       // Only one signal available -> weights renormalise to 1:
-      // examPriority(5 days, 21-day horizon) = 1 - 5/21 = 0.7619.
+      // examProximity(5 days, 21-day horizon) = 1 - 5/21 = 0.7619.
       expect(priority!.score, closeTo(0.7619, 0.005));
     });
   });
