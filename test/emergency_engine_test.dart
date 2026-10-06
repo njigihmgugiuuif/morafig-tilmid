@@ -50,15 +50,15 @@ void main() {
 
   group('adjustPriorityWeights() — weights only, always still valid '
       'after renormalization', () {
-    test('examProximity boosts examPriority weight above the others, and '
+    test('the examProximity trigger boosts the examProximity weight, and '
         'the result still renormalizes to a valid score via '
         'PriorityEngine', () {
       final base = PriorityWeights.defaults();
       final boosted =
           engine.adjustPriorityWeights(base, EmergencyTriggerKind.examProximity);
 
-      expect(boosted[PrioritySignalKind.examPriority],
-          greaterThan(base[PrioritySignalKind.examPriority]));
+      expect(boosted[PrioritySignalKind.examProximity],
+          greaterThan(base[PrioritySignalKind.examProximity]));
       // Every other weight is untouched.
       expect(boosted[PrioritySignalKind.officialCoefficient],
           base[PrioritySignalKind.officialCoefficient]);
@@ -68,16 +68,16 @@ void main() {
       // does not duplicate that logic.
       const signals = PrioritySignals(
         officialCoefficient: 0.5,
-        learningPriority: 0.5,
-        examPriority: 1.0,
-        personalWeakness: 0.5,
+        longTermGoalAlignment: 0.5,
+        examProximity: 1.0,
+        masteryGap: 0.5,
         forgettingRisk: 0.5,
-        urgencyImportance: 0.5,
+        deadlinePressure: 0.5,
       );
       final result =
           const PriorityEngine().compute(signals: signals, weights: boosted);
       expect(result.score, inInclusiveRange(0.0, 1.0));
-      // With examPriority weighted higher and examPriority=1.0 (the max
+      // With examProximity weighted higher and examProximity=1.0 (the max
       // signal value here), the boosted score must be >= the unboosted
       // score for the same signals.
       final unboosted =
@@ -85,14 +85,14 @@ void main() {
       expect(result.score, greaterThanOrEqualTo(unboosted.score));
     });
 
-    test('workloadImpossible boosts urgencyImportance weight only', () {
+    test('workloadImpossible boosts deadlinePressure weight only', () {
       final base = PriorityWeights.defaults();
       final boosted = engine.adjustPriorityWeights(
           base, EmergencyTriggerKind.workloadImpossible);
-      expect(boosted[PrioritySignalKind.urgencyImportance],
-          greaterThan(base[PrioritySignalKind.urgencyImportance]));
-      expect(boosted[PrioritySignalKind.examPriority],
-          base[PrioritySignalKind.examPriority]);
+      expect(boosted[PrioritySignalKind.deadlinePressure],
+          greaterThan(base[PrioritySignalKind.deadlinePressure]));
+      expect(boosted[PrioritySignalKind.examProximity],
+          base[PrioritySignalKind.examProximity]);
     });
   });
 
