@@ -337,6 +337,23 @@ class CurriculumRepository {
     return PolicyStatus.fromDb(row.status);
   }
 
+  /// READ-ONLY (A-1, DEVIATION-21). Every SubjectLoad of one curriculum
+  /// version that belongs to exactly this stream. Loads with NO stream
+  /// (`streamId` NULL) never match here, so they can never enter a
+  /// comparison between subjects of a stream. The rows are returned raw:
+  /// their coefficients must still go through [getUsableCoefficient] (Guard
+  /// #2) before anything consumes them. Nothing is written or changed.
+  Future<List<SubjectLoad>> readLoadsForVersionAndStream({
+    required String curriculumVersionId,
+    required String streamId,
+  }) {
+    return (_db.select(_db.subjectLoads)
+          ..where((t) =>
+              t.curriculumVersionId.equals(curriculumVersionId) &
+              t.streamId.equals(streamId)))
+        .get();
+  }
+
   Future<CurriculumVersion?> readCurriculumVersion(String id) =>
       (_db.select(_db.curriculumVersions)..where((t) => t.id.equals(id)))
           .getSingleOrNull();
