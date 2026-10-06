@@ -1,3 +1,5 @@
+import 'package:drift/drift.dart';
+
 import '../database/app_database.dart';
 
 /// READ-ONLY access to the due dates that already exist in the schema
