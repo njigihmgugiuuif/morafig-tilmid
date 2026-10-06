@@ -7,7 +7,7 @@ import '../repositories/exam_repository.dart';
 /// Two things, both feeding existing engines rather than duplicating
 /// them: `daysUntilNearestExam` (raw input emergency_engine.dart's
 /// evaluate() needs) and `examPrioritySignal` (a [0,1] value derived from
-/// exam proximity, feeding priority_engine.dart's examPriority signal).
+/// exam proximity, feeding priority_engine.dart's examProximity signal).
 class ExaminationDomainService {
   const ExaminationDomainService(this._exams, {this.urgencyHorizonDays = 21});
 
