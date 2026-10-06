@@ -3,11 +3,13 @@ import 'package:test/test.dart';
 import 'package:student_app/database/app_database.dart';
 import 'package:student_app/database/testing/in_memory_database.dart';
 import 'package:student_app/domain/enums.dart';
+import 'package:student_app/repositories/curriculum_repository.dart';
 import 'package:student_app/repositories/event_repository.dart';
 import 'package:student_app/repositories/exam_repository.dart';
 import 'package:student_app/repositories/mastery_repository.dart';
 import 'package:student_app/repositories/memory_repository.dart';
 import 'package:student_app/repositories/priority_repository.dart';
+import 'package:student_app/repositories/student_repository.dart';
 import 'package:student_app/repositories/task_repository.dart';
 import 'package:student_app/services/intelligence_service.dart';
 import 'fixtures/seed_data.dart';
@@ -143,6 +145,163 @@ void main() {
       // Only one signal available -> weights renormalise to 1:
       // examProximity(5 days, 21-day horizon) = 1 - 5/21 = 0.7619.
       expect(priority!.score, closeTo(0.7619, 0.005));
+    });
+  });
+
+  // A-1 (DEVIATION-21). Synthetic data only.
+  group('A-1: officialCoefficient and deadlinePressure', () {
+    late String levelId;
+    late String streamId;
+
+    Future<void> linkStudentToActiveVersionWithTwoLoads({
+      required double ownCoefficient,
+      required double otherCoefficient,
+    }) async {
+      final level = await db.into(db.educationLevels).insertReturning(
+          EducationLevelsCompanion.insert(name: 'TEST-LEVEL-A1', order: 9));
+      levelId = level.id;
+      final stream = await db.into(db.streams).insertReturning(
+          StreamsCompanion.insert(name: 'TEST-STREAM-A1', educationLevelId: levelId));
+      streamId = stream.id;
+
+      final curriculum = CurriculumRepository(db);
+      final doc = await db.into(db.policyDocuments).insertReturning(
+            PolicyDocumentsCompanion.insert(
+              documentNumber: 'TEST-DOC-A1-SERVICE',
+              documentType: 'test-fixture',
+              issuingAuthority: 'test-fixture',
+              verificationStatus: 'primaryVerified',
+            ),
+          );
+      final version = await curriculum.createVersion(
+        academicYearId: seed.academicYearId,
+        status: PolicyStatus.active,
+        sourcePolicyDocumentId: doc.id,
+      );
+      final other = await db.into(db.subjects).insertReturning(
+          SubjectsCompanion.insert(name: 'TEST-OTHER', educationLevelId: levelId));
+      await curriculum.ingestSubjectLoad(
+        curriculumVersionId: version.id,
+        subjectId: seed.subjectId,
+        streamId: streamId,
+        coefficient: ownCoefficient,
+        status: PolicyStatus.active,
+      );
+      await curriculum.ingestSubjectLoad(
+        curriculumVersionId: version.id,
+        subjectId: other.id,
+        streamId: streamId,
+        coefficient: otherCoefficient,
+        status: PolicyStatus.active,
+      );
+
+      final students = StudentRepository(db);
+      await students.setAcademicTrack(
+          studentId: seed.studentId,
+          educationLevelId: levelId,
+          streamId: streamId);
+      await students.setCurriculumVersion(
+          studentId: seed.studentId, curriculumVersionId: version.id);
+    }
+
+    test('a linked student with a stream and two usable loads gets the '
+        'normalised coefficient as a real signal', () async {
+      await linkStudentToActiveVersionWithTwoLoads(
+          ownCoefficient: 3.0, otherCoefficient: 6.0);
+      final open = await newTask();
+
+      await service().refreshPriorities();
+
+      final priority = await PriorityRepository(db).read(open.id);
+      expect(priority, isNotNull);
+      // Only one live signal: 3 / 6 = 0.5, weights renormalise to 1.
+      expect(priority!.score, closeTo(0.5, 1e-9));
+      final explanation = await (db.select(db.explanations)
+            ..where((t) => t.id.equals(priority.explanationId)))
+          .getSingle();
+      expect(explanation.factorsJson, contains('officialCoefficient'));
+      expect(explanation.excludedFactorsJson,
+          isNot(contains('officialCoefficient')));
+      expect(explanation.excludedFactorsJson, contains('deadlinePressure'));
+      expect(explanation.excludedFactorsJson, contains('longTermGoalAlignment'));
+    });
+
+    test('a student with no usable curriculum link gets no coefficient '
+        'signal even when loads exist', () async {
+      await linkStudentToActiveVersionWithTwoLoads(
+          ownCoefficient: 3.0, otherCoefficient: 6.0);
+      // Unlink: the loads still exist, but the student's curriculum is
+      // UNKNOWN again.
+      await StudentRepository(db).clearCurriculumVersion(seed.studentId);
+      final open = await newTask();
+
+      await service().refreshPriorities();
+
+      expect(await PriorityRepository(db).read(open.id), isNull);
+    });
+
+    test('a due date produces a deadline-driven priority', () async {
+      final open = await newTask();
+      await db.into(db.deadlines).insert(DeadlinesCompanion.insert(
+            relatedEntityId: open.id,
+            relatedEntityType: 'Task',
+            dueDateTime: fixedNow.add(const Duration(days: 7)),
+            isHard: true,
+          ));
+
+      await service().refreshPriorities();
+
+      final priority = await PriorityRepository(db).read(open.id);
+      expect(priority, isNotNull);
+      expect(priority!.score, closeTo(1.0 - 7.0 / 21.0, 1e-9));
+      final explanation = await (db.select(db.explanations)
+            ..where((t) => t.id.equals(priority.explanationId)))
+          .getSingle();
+      expect(explanation.factorsJson, contains('deadlinePressure'));
+    });
+
+    test('an overdue open task has full deadline pressure', () async {
+      final open = await newTask();
+      await db.into(db.deadlines).insert(DeadlinesCompanion.insert(
+            relatedEntityId: open.id,
+            relatedEntityType: 'Task',
+            dueDateTime: fixedNow.subtract(const Duration(days: 1)),
+            isHard: false,
+          ));
+
+      await service().refreshPriorities();
+
+      final priority = await PriorityRepository(db).read(open.id);
+      expect(priority!.score, closeTo(1.0, 1e-9));
+    });
+
+    test('old explanation rows are not rewritten by a new refresh',
+        () async {
+      final open = await newTask();
+      await ExamRepository(db).insert(
+        subjectId: seed.subjectId,
+        examDate: DateTime.utc(2026, 10, 6, 12),
+        examType: ExamType.summative,
+      );
+      await service().refreshPriorities();
+      final before = await db.select(db.explanations).get();
+
+      await db.into(db.deadlines).insert(DeadlinesCompanion.insert(
+            relatedEntityId: open.id,
+            relatedEntityType: 'Task',
+            dueDateTime: fixedNow.add(const Duration(days: 2)),
+            isHard: true,
+          ));
+      await service().refreshPriorities();
+      final after = await db.select(db.explanations).get();
+
+      expect(after.length, greaterThan(before.length));
+      for (final old in before) {
+        final same = after.firstWhere((e) => e.id == old.id);
+        expect(same.factorsJson, old.factorsJson);
+        expect(same.excludedFactorsJson, old.excludedFactorsJson);
+        expect(same.dominantFactor, old.dominantFactor);
+      }
     });
   });
 }
