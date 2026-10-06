@@ -80,7 +80,7 @@ class MissedTaskContext {
 
   /// Hours until the nearest HARD Deadline affecting this task, or null
   /// if none is known. Never a soft deadline — those are absorbed into
-  /// priorityScore's urgencyImportance signal already, not re-consulted
+  /// priorityScore's deadlinePressure signal already, not re-consulted
   /// here (avoids double-counting the same information twice).
   final double? hoursUntilHardDeadline;
 
