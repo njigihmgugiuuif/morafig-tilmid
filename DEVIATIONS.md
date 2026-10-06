@@ -413,3 +413,31 @@ DAO, repository, or test was removed or renamed.
 **Not changed:** UI (including `priorities_screen.dart`), schema, migrations, pubspec, workflows, other engines' logic.
 
 **Status:** UNVERIFIED — no Dart/Flutter SDK in the authoring environment. Verified only by a GitHub Actions run.
+
+## DEVIATION-21 — A-1: officialCoefficient and deadlinePressure wired to real sources (2026-10-06)
+
+**Why.** After A-0 the Priority Engine had six correctly named signals, but `officialCoefficient` and `deadlinePressure` were hard-wired to null although the schema already holds their sources. A-1 wires them to those sources and to nothing else. It adds no schema, no writer and no UI.
+
+**officialCoefficient.**
+- Source: `SubjectLoads.coefficient`, read ONLY through `CurriculumRepository.getUsableCoefficient` (Guard #2, unchanged). The student's curriculum is taken from `StudentContextService` (it already refuses UNKNOWN / CONFLICT / FROZEN / REPEALED, stale and out-of-window versions) and the student's `streamId`.
+- Normalisation (an ENGINEERING DESIGN decision approved by the owner, not an official rule): the subject's coefficient divided by the highest usable coefficient among loads of the SAME stream and the SAME curriculum version. No coefficient value or ceiling is embedded anywhere.
+- Safeguards (approved): fewer than 2 usable loads (> 0) in the stream -> null; loads without a stream never take part; more than one load matching the subject in that stream -> null (ambiguous); own coefficient null or <= 0 -> null.
+- A REPEALED load is caught PER LOAD and treated as null for this signal only, so one withdrawn row cannot stop the priority refresh of every task. The direct read `getUsableCoefficient` still throws for REPEALED, exactly as before.
+- New API: `CurriculumRepository.readLoadsForVersionAndStream` (read-only; rows are raw, coefficients must still pass the guard), `CurriculumDomainService.normalizeAgainstStreamMax` (pure), `CurriculumDomainService.officialCoefficientSignalForSubject`, constant `minimumUsableLoads = 2`. The existing `normalizeCoefficient` / `officialCoefficientSignal` are untouched.
+- Real-data reality: the repository contains no official coefficient and no screen to enter one, so in the live app this signal stays null until a documented curriculum version is created, linked to the student and given loads with a stream. Nothing is seeded.
+
+**deadlinePressure.**
+- Sources (read-only, nothing else): `Deadlines` rows of type 'Task' for the task; `Deadlines` rows of type 'Assignment' and `Assignments.dueDate` for the task's `sourceAssignmentId`. 'Exam' deadlines are NOT read (examProximity owns exam dates; reading them twice would double-count). Hard and soft deadlines both count; Recovery's separate `hoursUntilHardDeadline` input is untouched.
+- Formula (INITIAL HEURISTIC approved by the owner, NOT an official rule): linear ramp `1 - days / 21`, 0.0 at 21 days or more; a due date that has passed on a task that is still open -> 1.0; no due date -> null (never 0). With several due dates the highest pressure decides.
+- New: `DeadlineRepository.readDueDatesForTask` (read-only), `DeadlineDomainService` (`deadlinePressureSignal` pure, `pressureForTask`, `defaultHorizonDays = 21`).
+- Real-data reality: nothing in the app writes Deadlines or Assignments and `TaskRepository.createTask` accepts no due date, so for real users this signal is null until a later phase adds a writer. Not added here.
+
+**longTermGoalAlignment — OPEN DECISION, stays null.** The `Goals` table exists (schema v4) but there is no repository, no writer, no UI, and no approved definition of "alignment" (how a goal becomes a number). Inventing a formula or a Goals repository is out of scope. To open it, the owner must approve (1) the definition of alignment and (2) the source/UI that writes goals (the first-goal onboarding step of the D-1 design belongs to phase E).
+
+**Existing records.** No schema change and no migration (`schemaVersion` stays 6). Explanations (append-only) are never rewritten; PriorityStates are derived and are recomputed on the next processing run, so scores of tasks that now have these signals can change. A-0 weights are untouched; unknown signals are still excluded and the remaining weights renormalised.
+
+**Tests.** `test/curriculum_domain_test.dart` (new pure group), `test/official_coefficient_signal_test.dart` (new, database), `test/deadline_domain_test.dart` (new, pure and database), `test/intelligence_service_test.dart` (new A-1 group). No test removed or weakened.
+
+**Not changed:** UI, schema, migrations, pubspec, workflows, A-0 weights, `forgettingRisk` (amplified-forgetting formula still not in the repository), Error / Time / Workload / Energy wiring, Human Override, Goals, every earlier guard.
+
+**Status:** UNVERIFIED — no Dart/Flutter SDK in the authoring environment. Verified only by a GitHub Actions run.
