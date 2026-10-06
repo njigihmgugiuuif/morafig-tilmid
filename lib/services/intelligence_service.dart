@@ -3,10 +3,15 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 
 import '../database/app_database.dart';
+import '../domain/curriculum_domain.dart';
+import '../domain/deadline_domain.dart';
 import '../domain/examination_domain.dart';
+import '../domain/student_context_domain.dart';
 import '../engines/mastery_engine.dart';
 import '../engines/memory_engine.dart';
 import '../engines/priority_engine.dart';
+import '../repositories/curriculum_repository.dart';
+import '../repositories/deadline_repository.dart';
 import '../repositories/event_repository.dart';
 import '../repositories/exam_repository.dart';
 import '../repositories/explanation_and_override_repositories.dart';
@@ -48,9 +53,17 @@ class IntelligenceRunResult {
 ///     masteryGap     = 1 - mastery probability
 ///     forgettingRisk = 1 - FSRS retrievability now
 ///     examProximity  = ramp over days to the nearest exam of the subject
-///   officialCoefficient / longTermGoalAlignment / deadlinePressure stay null
-///   (unknown, never invented) and the Priority Engine renormalises weights
-///   over the available signals. Every priority gets a real Explanation row.
+///     officialCoefficient (A-1) = the subject's usable coefficient divided
+///       by the highest usable coefficient of the same stream and curriculum
+///       version; null unless the student has a USABLE linked version and a
+///       stream, exactly one matching load, and >= 2 usable loads.
+///     deadlinePressure (A-1) = linear ramp over a 21-day INITIAL HEURISTIC
+///       horizon from the task's own due date; 1.0 when it has passed and
+///       the task is still open; null when the task has no due date.
+///   longTermGoalAlignment stays null (no goal source or definition yet:
+///   open decision). Unknown signals are never invented: the Priority Engine
+///   renormalises weights over the available signals. Every priority gets a
+///   real Explanation row.
 class IntelligenceService {
   IntelligenceService(this._db, {DateTime Function()? clock})
       : _clock = clock ?? DateTime.now;
@@ -172,6 +185,37 @@ class IntelligenceService {
     const memoryEngine = MemoryEngine();
     const priorityEngine = PriorityEngine();
 
+    // A-1: official coefficient and deadline pressure. The student's usable
+    // curriculum context is read once per run; the coefficient signal is
+    // cached per subject because it does not depend on the task.
+    final curriculumRepo = CurriculumRepository(_db);
+    final curriculumDomain = CurriculumDomainService(curriculumRepo);
+    final studentContext =
+        await StudentContextService(StudentRepository(_db), curriculumRepo)
+            .current(asOf: now);
+    final deadlines = DeadlineDomainService(DeadlineRepository(_db));
+    final coefficientBySubject = <String, double?>{};
+
+    Future<double?> officialCoefficientFor(String? subjectId) async {
+      if (subjectId == null) return null;
+      final ctx = studentContext;
+      if (ctx == null || !ctx.curriculumUsable) return null;
+      final versionId = ctx.curriculumVersionId;
+      final streamId = ctx.profile.student.streamId;
+      if (versionId == null || streamId == null) return null;
+      if (coefficientBySubject.containsKey(subjectId)) {
+        return coefficientBySubject[subjectId];
+      }
+      final value = await curriculumDomain.officialCoefficientSignalForSubject(
+        subjectId: subjectId,
+        curriculumVersionId: versionId,
+        streamId: streamId,
+        asOf: now,
+      );
+      coefficientBySubject[subjectId] = value;
+      return value;
+    }
+
     for (final task in tasks) {
       final m = await mastery.read(student.id, task.knowledgeNodeId);
       final mem = await memory.read(student.id, task.knowledgeNodeId);
@@ -192,12 +236,21 @@ class IntelligenceService {
         subjectId: subjectId,
       );
 
+      final officialCoefficient = await officialCoefficientFor(subjectId);
+      final deadlinePressure = await deadlines.pressureForTask(
+        taskId: task.id,
+        sourceAssignmentId: task.sourceAssignmentId,
+        now: now,
+      );
+
       final signals = PrioritySignals(
         masteryGap: m == null ? null : (1.0 - m.probability),
         forgettingRisk: forgetting,
-        officialCoefficient: null,
+        officialCoefficient: officialCoefficient,
         examProximity: ExaminationDomainService.examPrioritySignal(days),
-        deadlinePressure: null,
+        deadlinePressure: deadlinePressure,
+        // Open decision: no goal source and no approved definition of
+        // "alignment" exist yet (DEVIATION-21). Never invented.
         longTermGoalAlignment: null,
       );
       if (signals.asMap().values.every((v) => v == null)) continue;
