@@ -16,63 +16,95 @@
 /// (no Flutter/Dart SDK in this environment). See
 /// test/priority_engine_test.dart.
 ///
-/// DESIGN NOTE: PriorityWeights.defaults() below is an EQUAL-WEIGHT
-/// placeholder (1/6 each), not a reproduction of specific w1-w6 values
-/// from an external document — this file was written without that
-/// document available in this session. It is intentionally a safe,
-/// neutral starting point (no signal privileged over another) rather
-/// than a guess at numbers this session cannot verify, and is exposed as
-/// a swappable constructor argument for that reason. Re-deriving the
-/// originally-designed w1-w6 (with their documented rationale/calibration
-/// bounds) against the actual spec is flagged as follow-up work, not done
-/// silently here.
+/// SIGNAL SET AND WEIGHTS (A-0, DEVIATION-20): the six signals and their
+/// initial weights follow the approved final intelligence spec, not the
+/// names the first foundation layer used. The weights are the spec's
+/// INITIAL values (a starting point to be calibrated, not official facts):
+///   masteryGap 0.30, forgettingRisk 0.20, officialCoefficient 0.20,
+///   examProximity 0.15, deadlinePressure 0.10, longTermGoalAlignment 0.05.
+/// Calibration bounds for w2..w6 are NOT in the repository and are not
+/// invented here. The Error Engine's pattern is deliberately NOT a signal:
+/// it may only influence mastery/confidence inside its own engine.
+///
+/// "forgettingRisk" keeps its pre-A-0 name for now: the spec's AMPLIFIED
+/// forgetting formula is not in the repository, so the value stays the
+/// plain 1 - retrievability until that formula is found (open item).
 library priority_engine;
 
-/// The six signal categories from the Master Blueprint / Intelligence
-/// Spec: official curriculum coefficient, current mastery gap ("learning
-/// priority" — 1 - masteryProbability, higher = needs more learning),
-/// exam-proximity priority, personal weakness (from ErrorEngine),
-/// memory forgetting risk (from MemoryEngine's retrievability, inverted:
-/// higher = more likely to have decayed), and general urgency/importance
-/// (deadline pressure independent of exams, e.g. an assignment due date).
+/// The six signals of the approved spec. Each is [0,1] or null.
+///  - masteryGap: 1 - mastery probability (higher = needs more learning).
+///  - forgettingRisk: 1 - FSRS retrievability now (see note above).
+///  - officialCoefficient: normalised official coefficient, only from a
+///    verified ACTIVE source (null otherwise).
+///  - examProximity: ramp over days to the nearest exam.
+///  - deadlinePressure: pressure of a task's own deadline (null if none).
+///  - longTermGoalAlignment: alignment with the student's long-term goal
+///    (null if no goal is set).
 enum PrioritySignalKind {
-  officialCoefficient,
-  learningPriority,
-  examPriority,
-  personalWeakness,
+  masteryGap,
   forgettingRisk,
-  urgencyImportance,
+  officialCoefficient,
+  examProximity,
+  deadlinePressure,
+  longTermGoalAlignment,
+}
+
+/// Names written by earlier versions into Explanation.factorsJson /
+/// excludedFactorsJson / dominantFactor and PriorityStates.weightsUsedJson.
+/// Those rows are never rewritten (Explanations are append-only); readers
+/// use [canonicalPrioritySignalName] to understand both generations.
+/// `personalWeakness` was always the value 1 - mastery, i.e. masteryGap.
+/// `learningPriority` was never populated (always excluded).
+const Map<String, String> legacyPrioritySignalNames = {
+  'personalWeakness': 'masteryGap',
+  'examPriority': 'examProximity',
+  'urgencyImportance': 'deadlinePressure',
+  'learningPriority': 'longTermGoalAlignment',
+};
+
+/// Maps a stored factor name (old or new) to the current name.
+String canonicalPrioritySignalName(String stored) =>
+    legacyPrioritySignalNames[stored] ?? stored;
+
+/// The current kind for a stored factor name (old or new), or null if the
+/// name is unknown.
+PrioritySignalKind? prioritySignalKindFromStoredName(String stored) {
+  final name = canonicalPrioritySignalName(stored);
+  for (final k in PrioritySignalKind.values) {
+    if (k.name == name) return k;
+  }
+  return null;
 }
 
 /// All six signals, each [0,1] or null when genuinely unavailable (e.g.
-/// no exam scheduled yet -> examPriority is null, not 0 — 0 would falsely
+/// no exam scheduled yet -> examProximity is null, not 0 — 0 would falsely
 /// assert "definitely no exam urgency," null correctly means "this
 /// component has no opinion," and is excluded + renormalized around,
 /// never defaulted to a specific number).
 class PrioritySignals {
   const PrioritySignals({
-    required this.officialCoefficient,
-    required this.learningPriority,
-    required this.examPriority,
-    required this.personalWeakness,
+    required this.masteryGap,
     required this.forgettingRisk,
-    required this.urgencyImportance,
+    required this.officialCoefficient,
+    required this.examProximity,
+    required this.deadlinePressure,
+    required this.longTermGoalAlignment,
   });
 
-  final double? officialCoefficient;
-  final double? learningPriority;
-  final double? examPriority;
-  final double? personalWeakness;
+  final double? masteryGap;
   final double? forgettingRisk;
-  final double? urgencyImportance;
+  final double? officialCoefficient;
+  final double? examProximity;
+  final double? deadlinePressure;
+  final double? longTermGoalAlignment;
 
   Map<PrioritySignalKind, double?> asMap() => {
-        PrioritySignalKind.officialCoefficient: officialCoefficient,
-        PrioritySignalKind.learningPriority: learningPriority,
-        PrioritySignalKind.examPriority: examPriority,
-        PrioritySignalKind.personalWeakness: personalWeakness,
+        PrioritySignalKind.masteryGap: masteryGap,
         PrioritySignalKind.forgettingRisk: forgettingRisk,
-        PrioritySignalKind.urgencyImportance: urgencyImportance,
+        PrioritySignalKind.officialCoefficient: officialCoefficient,
+        PrioritySignalKind.examProximity: examProximity,
+        PrioritySignalKind.deadlinePressure: deadlinePressure,
+        PrioritySignalKind.longTermGoalAlignment: longTermGoalAlignment,
       };
 }
 
@@ -81,9 +113,14 @@ class PriorityWeights {
 
   final Map<PrioritySignalKind, double> _weights;
 
-  /// Equal-weight neutral default — see file-level DESIGN NOTE.
-  factory PriorityWeights.defaults() => PriorityWeights({
-        for (final k in PrioritySignalKind.values) k: 1.0 / 6.0,
+  /// The spec's INITIAL weights (sum = 1.0) — see the file-level note.
+  factory PriorityWeights.defaults() => const PriorityWeights({
+        PrioritySignalKind.masteryGap: 0.30,
+        PrioritySignalKind.forgettingRisk: 0.20,
+        PrioritySignalKind.officialCoefficient: 0.20,
+        PrioritySignalKind.examProximity: 0.15,
+        PrioritySignalKind.deadlinePressure: 0.10,
+        PrioritySignalKind.longTermGoalAlignment: 0.05,
       });
 
   double operator [](PrioritySignalKind k) => _weights[k] ?? 0.0;
