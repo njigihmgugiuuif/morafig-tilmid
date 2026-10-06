@@ -60,12 +60,12 @@ class EmergencyModeEngine {
   /// examProximity. INITIAL HEURISTIC.
   final int examProximityDays;
 
-  /// How much examPriority's raw weight is multiplied by before
+  /// How much examProximity's raw weight is multiplied by before
   /// priority_engine.dart renormalizes everything back to sum 1.0.
   /// INITIAL HEURISTIC.
   final double examSignalBoostMultiplier;
 
-  /// Same idea, applied to urgencyImportance — used for the
+  /// Same idea, applied to deadlinePressure — used for the
   /// workloadImpossible trigger (deadline pressure across the board
   /// matters more than any single exam). INITIAL HEURISTIC.
   final double urgencySignalBoostMultiplier;
@@ -124,11 +124,11 @@ class EmergencyModeEngine {
     for (final k in PrioritySignalKind.values) {
       var w = original[k];
       if (trigger == EmergencyTriggerKind.examProximity &&
-          k == PrioritySignalKind.examPriority) {
+          k == PrioritySignalKind.examProximity) {
         w *= examSignalBoostMultiplier;
       }
       if (trigger == EmergencyTriggerKind.workloadImpossible &&
-          k == PrioritySignalKind.urgencyImportance) {
+          k == PrioritySignalKind.deadlinePressure) {
         w *= urgencySignalBoostMultiplier;
       }
       boosted[k] = w;
