@@ -5,9 +5,10 @@ import 'dart:math' as math;
 /// Pure, dependency-free — no Drift/Flutter import, unit-testable in
 /// isolation, same pattern as memory_engine.dart. Turns a raw history of
 /// ErrorRecords (student, knowledgeNode) into a bounded [0,1] "error
-/// signal" plus structured risk flags, for consumption by the Priority
-/// Engine as the `personalWeakness` signal (see priority_engine.dart) and
-/// by the (future) Recovery Engine triage logic.
+/// signal" plus structured risk flags, for the (future) Recovery Engine
+/// triage logic. Per the approved spec the error pattern is NOT a separate
+/// Priority signal (see priority_engine.dart); it may only influence
+/// mastery/confidence.
 ///
 /// ErrorRecords themselves are a raw append-only log (see
 /// error_repository.dart) — this engine never writes anything; it only
