@@ -393,3 +393,23 @@ DAO, repository, or test was removed or renamed.
 **Not changed:** UI, Curriculum v5 logic, Weekly Timeline, Gap Detection, Scheduling, dependencies, workflows, `pubspec.yaml`.
 
 **Status:** UNVERIFIED — no Dart/Flutter SDK in the authoring environment. Verified only by a GitHub Actions run (build_runner, analyze, tests).
+
+## DEVIATION-20 — A-0: Priority signals aligned with the approved spec (2026-10-05)
+
+**Why.** The first foundation layer named and weighted the six Priority signals differently from the approved final intelligence spec: it stored the mastery gap (1 - mastery) under `personalWeakness`, kept an unused `learningPriority` in the sixth slot instead of long-term-goal alignment, and used a 1/6 equal-weight placeholder.
+
+**Changes (no schema change, no migration).**
+- Signal names: `personalWeakness` -> `masteryGap`, `examPriority` -> `examProximity`, `urgencyImportance` -> `deadlinePressure`, `learningPriority` -> `longTermGoalAlignment`. `forgettingRisk` and `officialCoefficient` keep their names.
+- `PriorityWeights.defaults()`: masteryGap 0.30, forgettingRisk 0.20, officialCoefficient 0.20, examProximity 0.15, deadlinePressure 0.10, longTermGoalAlignment 0.05 (sum 1.0). These are the spec's INITIAL values, not official facts.
+- `legacyPrioritySignalNames`, `canonicalPrioritySignalName`, `prioritySignalKindFromStoredName` (priority_engine.dart): readers understand both generations of stored names.
+- The error pattern is not a Priority signal (comments in error_engine.dart corrected).
+
+**Existing records.** `Explanations` (append-only) and old `factorsJson` / `excludedFactorsJson` / `dominantFactor` keep their original names and are never rewritten. `PriorityStates` rows are derived and are recomputed with the new names and weights on the next processing run. Old backups import unchanged (the JSON text is carried verbatim). Old scores are not comparable with new ones because the weights changed.
+
+**Open items (not invented).** (1) The spec's AMPLIFIED forgetting formula is not in the repository, so `forgettingRisk` is still 1 - retrievability under its old name. (2) Calibration bounds for w2..w6 are not in the repository. (3) `deadlinePressure` needs a task deadline source (to verify in A-1). (4) `longTermGoalAlignment` needs a goal source (Goals repository does not exist yet).
+
+**Tests.** `priority_engine_test.dart`, `emergency_engine_test.dart`, `intelligence_service_test.dart` renamed to the new names; new A-0 group in `priority_engine_test.dart` (exact default weights, exact name set, renormalisation of three live signals, legacy-name mapping). No test removed.
+
+**Not changed:** UI (including `priorities_screen.dart`), schema, migrations, pubspec, workflows, other engines' logic.
+
+**Status:** UNVERIFIED — no Dart/Flutter SDK in the authoring environment. Verified only by a GitHub Actions run.
