@@ -23,20 +23,6 @@ void main() {
   late String versionId;
   var docCounter = 0;
 
-  setUp(() async {
-    db = createInMemoryTestDatabase();
-    seed = await seedMinimalCurriculum(db);
-    curriculum = CurriculumRepository(db);
-    domain = CurriculumDomainService(curriculum);
-
-    final level = await db.into(db.educationLevels).insertReturning(
-        EducationLevelsCompanion.insert(name: 'TEST-LEVEL-A1', order: 9));
-    levelId = level.id;
-    streamId = (await makeStream('TEST-STREAM-1')).id;
-    versionId = (await makeVersion(PolicyStatus.active)).id;
-  });
-  tearDown(() => db.close());
-
   Future<StudyStream> makeStream(String name) =>
       db.into(db.streams).insertReturning(
           StreamsCompanion.insert(name: name, educationLevelId: levelId));
@@ -87,6 +73,20 @@ void main() {
         streamId: stream ?? streamId,
         asOf: asOf,
       );
+
+  setUp(() async {
+    db = createInMemoryTestDatabase();
+    seed = await seedMinimalCurriculum(db);
+    curriculum = CurriculumRepository(db);
+    domain = CurriculumDomainService(curriculum);
+
+    final level = await db.into(db.educationLevels).insertReturning(
+        EducationLevelsCompanion.insert(name: 'TEST-LEVEL-A1', order: 9));
+    levelId = level.id;
+    streamId = (await makeStream('TEST-STREAM-1')).id;
+    versionId = (await makeVersion(PolicyStatus.active)).id;
+  });
+  tearDown(() => db.close());
 
   group('officialCoefficientSignalForSubject', () {
     test('highest = 1.0, others proportional to the highest of the stream',
