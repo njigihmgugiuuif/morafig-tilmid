@@ -45,10 +45,10 @@ class IntelligenceRunResult {
 ///     -> mark event processed
 ///   then, once per run, recompute Priority for every open task using ONLY
 ///   the signals that really exist:
-///     personalWeakness = 1 - mastery probability
-///     forgettingRisk   = 1 - FSRS retrievability now
-///     examPriority     = ramp over days to the nearest exam of the subject
-///   officialCoefficient / learningPriority / urgencyImportance stay null
+///     masteryGap     = 1 - mastery probability
+///     forgettingRisk = 1 - FSRS retrievability now
+///     examProximity  = ramp over days to the nearest exam of the subject
+///   officialCoefficient / longTermGoalAlignment / deadlinePressure stay null
 ///   (unknown, never invented) and the Priority Engine renormalises weights
 ///   over the available signals. Every priority gets a real Explanation row.
 class IntelligenceService {
@@ -193,12 +193,12 @@ class IntelligenceService {
       );
 
       final signals = PrioritySignals(
-        officialCoefficient: null,
-        learningPriority: null,
-        examPriority: ExaminationDomainService.examPrioritySignal(days),
-        personalWeakness: m == null ? null : (1.0 - m.probability),
+        masteryGap: m == null ? null : (1.0 - m.probability),
         forgettingRisk: forgetting,
-        urgencyImportance: null,
+        officialCoefficient: null,
+        examProximity: ExaminationDomainService.examPrioritySignal(days),
+        deadlinePressure: null,
+        longTermGoalAlignment: null,
       );
       if (signals.asMap().values.every((v) => v == null)) continue;
 
