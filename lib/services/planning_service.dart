@@ -650,9 +650,9 @@ class PlanningService {
     }
 
     // Candidates.
-    final taskRows = await (_db.select(_db.tasks)
-          ..where((t) => t.completionStatus.equals('complete').not()))
-        .get();
+    final taskRows = (await _db.select(_db.tasks).get())
+        .where((t) => t.completionStatus != 'complete')
+        .toList();
     final graph = KnowledgeGraphDomainService(
       PrerequisiteRepository(_db),
       MasteryRepository(_db),
