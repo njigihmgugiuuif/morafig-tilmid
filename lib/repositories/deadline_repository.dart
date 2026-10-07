@@ -51,4 +51,32 @@ class DeadlineRepository {
 
     return dates;
   }
+
+  /// Due dates of HARD `Deadlines` rows only (isHard == true) for a task or
+  /// its linked assignment. Used by Recovery (B), whose rule is explicitly
+  /// "never a soft deadline". `Assignments.dueDate` is not read here: nothing
+  /// says it is hard, and it is never assumed to be.
+  Future<List<DateTime>> readHardDueDatesForTask({
+    required String taskId,
+    String? sourceAssignmentId,
+  }) async {
+    final dates = <DateTime>[];
+    final own = await (_db.select(_db.deadlines)
+          ..where((t) =>
+              t.relatedEntityType.equals('Task') &
+              t.relatedEntityId.equals(taskId) &
+              t.isHard.equals(true)))
+        .get();
+    dates.addAll(own.map((d) => d.dueDateTime));
+    if (sourceAssignmentId != null) {
+      final viaAssignment = await (_db.select(_db.deadlines)
+            ..where((t) =>
+                t.relatedEntityType.equals('Assignment') &
+                t.relatedEntityId.equals(sourceAssignmentId) &
+                t.isHard.equals(true)))
+          .get();
+      dates.addAll(viaAssignment.map((d) => d.dueDateTime));
+    }
+    return dates;
+  }
 }

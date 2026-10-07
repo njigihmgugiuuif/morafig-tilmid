@@ -33,4 +33,12 @@ class EventRepository extends AppendOnlyRepository<Events, Event> {
     await (_db.update(_db.events)..where((t) => t.id.equals(id)))
         .write(EventsCompanion(processedAt: Value(processedAt)));
   }
+
+  /// Read-only: every event of one type, oldest first (B: idempotency of
+  /// TaskMissed / the last PlanGenerated). Never mutates.
+  Future<List<Event>> readByType(String type) =>
+      (_db.select(_db.events)
+            ..where((t) => t.type.equals(type))
+            ..orderBy([(t) => OrderingTerm.asc(t.createdAt)]))
+          .get();
 }

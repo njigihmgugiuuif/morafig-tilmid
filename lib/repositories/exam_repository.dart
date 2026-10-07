@@ -37,4 +37,30 @@ class ExamRepository {
     query.orderBy([(t) => OrderingTerm.asc(t.examDate)]);
     return query.get();
   }
+
+  Future<Exam?> readById(String id) =>
+      (_db.select(_db.exams)..where((t) => t.id.equals(id)))
+          .getSingleOrNull();
+
+  /// Exams with `from <= examDate < to`, soonest first (B: the plan's week).
+  Future<List<Exam>> readInRange({
+    required DateTime from,
+    required DateTime to,
+  }) {
+    final query = _db.select(_db.exams)
+      ..where((t) =>
+          t.examDate.isBiggerOrEqualValue(from) &
+          t.examDate.isSmallerThanValue(to))
+      ..orderBy([(t) => OrderingTerm.asc(t.examDate)]);
+    return query.get();
+  }
+
+  /// The education level a subject belongs to (Subjects.educationLevelId),
+  /// or null when the subject does not exist. Read-only (B: exam linking).
+  Future<String?> levelIdForSubject(String subjectId) async {
+    final row = await (_db.select(_db.subjects)
+          ..where((t) => t.id.equals(subjectId)))
+        .getSingleOrNull();
+    return row?.educationLevelId;
+  }
 }
