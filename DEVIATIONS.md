@@ -441,3 +441,31 @@ DAO, repository, or test was removed or renamed.
 **Not changed:** UI, schema, migrations, pubspec, workflows, A-0 weights, `forgettingRisk` (amplified-forgetting formula still not in the repository), Error / Time / Workload / Energy wiring, Human Override, Goals, every earlier guard.
 
 **Status:** UNVERIFIED — no Dart/Flutter SDK in the authoring environment. Verified only by a GitHub Actions run.
+
+## DEVIATION-22 — B: the real weekly plan, saved, and replanned from reality (2026-10-07)
+
+**Why.** After A the engines existed but nothing joined them: StudySessions/TaskSegments were unused, the events TaskMissed/PlanGenerated/PlanInvalidated were never written, Goals/Terms/Holidays had no repository, and nothing ran on app open. B adds that join and nothing else. No engine was changed (Weekly Timeline, Scheduling, Gap Detection, Weekly Planner, Dynamic Replanning, Recovery, Emergency, Workload and every DEVIATION-16 test are untouched).
+
+**New files.** `lib/services/planning_service.dart`; `lib/repositories/study_session_repository.dart`, `goal_repository.dart`, `academic_calendar_repository.dart`; `lib/domain/exam_link_domain.dart`; tests `planning_service_test.dart`, `planning_repositories_test.dart`.
+
+**Read-only additions to existing repositories.** `ExamRepository.readById/readInRange/levelIdForSubject`, `EventRepository.readByType`, `DeadlineRepository.readHardDueDatesForTask` (hard `Deadlines` rows only; `Assignments.dueDate` is never assumed hard). `AppState.bootstrap` calls `PlanningService.onAppOpen()` fire-and-forget (no UI change).
+
+**Pipeline.** Priority (PriorityStates, from A) orders the tasks; study windows = declared availability minus HARD reality constraints; the student's weekly template and constraints are the fixed blocks; prerequisites come from the Knowledge Graph; `WeeklyPlanner` places, builds the Sunday-first week and detects gaps; the result is saved as StudySessions (+ one TaskSegment per chunk of a splittable task) with a PlanGenerated event and an append-only Explanation (reason, changes, workload, emergency, Recovery directives, unscheduled reasons).
+
+**Safeguards.** (1) After planning, every chunk is re-checked against every HARD fixed block (sleep, school, commute, commitments); a violation throws and nothing is saved. (2) Reality is never inferred and no default timetable exists: without declared availability the plan is empty. (3) The past is never rewritten: a replan deletes only unexecuted sessions that start at or after "now" (rounded up to the minute, and after any session running now). (4) Exams are markers only (an exam has no stored duration; none is invented). (5) A task with no Priority is placed after all prioritised tasks and reported; it is never given a score.
+
+**Recovery.** Missed = a planned session that ended with no actual recorded and whose task is still open; each is written once as a TaskMissed event (idempotent by session id). Recovery decides ONE task at a time from its stored priority, the nearest HARD deadline, partial completion and the stored workload class, and the decision + reasoning are stored in RecoveryRecords. Application of each decision (the engine only names it): keep -> placed before all others; move -> normal order, next free slot; merge -> placed right after an already-planned task of the same knowledge node, else as move; defer -> placed after all non-deferred tasks; dropTemporarily -> excluded from the week of the missed session and listed in the result/explanation; replan -> a full replan. A decision applies to the week of its missed session.
+
+**Replanning.** `onAppOpen` writes the first plan of a week, and later replans only when the Dynamic Replanning Engine says so (its 15-minute deviation hysteresis is untouched): missed session, duration deviation, a new unavailability overlapping still-planned time, a changed workload class. Three student changes have no engine signal kind and are caller-level triggers, reported as such: a task added, an availability added, a template entry added after the last plan (deleting is not detected). A replan writes PlanInvalidated then PlanGenerated. A student-requested replan is `replanNow`.
+
+**Emergency.** The Emergency engine only changes WEIGHTS: the order is recomputed from the signal values stored with each task's Priority explanation using the engine's boosted weights, the fixed blocks, study windows and prerequisite checks being the same inputs. Entering/leaving is recorded once (EmergencyStates, EmergencyEntered/Exited). Workload used: needed = remaining minutes of prerequisite-satisfied tasks, available = the week's free study minutes from now (task estimates as typed; the Time Estimation engine is not wired).
+
+**Linking.** `ExamLinkService` reads, for an exam: the level of its subject, the student's active goals on that subject, the term containing its day, any holiday covering it, and warnings `exam_on_holiday`, `exam_outside_terms` (only when terms exist), `exam_level_differs_from_student`. Goals are NOT fed to Priority (longTermGoalAlignment stays an open decision). Holidays do not remove school blocks (that would infer); they are only reported.
+
+**Needs the owner's approval (INITIAL HEURISTIC, no approved value exists):** `prerequisiteMasteryThreshold = 0.5` (mastery a prerequisite must reach).
+
+**Schema.** No change, no migration (`schemaVersion` stays 6).
+
+**Not in B (later phases):** the screens that enter reality, show the plan, record actuals or show explanations (D-2/E); teacher content (C); a UI for goals, terms and holidays; knowledge-gap findings; per-day workload limits.
+
+**Status:** UNVERIFIED — no Dart/Flutter SDK in the authoring environment. Verified only by a GitHub Actions run (build_runner, analyze, tests).
