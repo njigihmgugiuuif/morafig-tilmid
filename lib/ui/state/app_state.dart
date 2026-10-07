@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../database/app_database.dart';
+import '../../services/planning_service.dart';
 
 /// App-wide state: holds the single open database connection and the
 /// current student's id (this is a single-user personal app — one
@@ -37,6 +40,13 @@ class AppState extends ChangeNotifier {
       if (verifiedId == null) {
         await prefs.remove(_studentIdKey);
       }
+    }
+
+    // B: the app-open trigger of the planning service (there is no
+    // background work without a server). Fire-and-forget: it never delays
+    // start-up and never throws (errors are collected inside the result).
+    if (verifiedId != null) {
+      unawaited(PlanningService(db).onAppOpen());
     }
 
     return AppState._(db, verifiedId);
