@@ -28,7 +28,7 @@ class AcademicCalendarRepository {
     required String name,
     required DateTime startDate,
     required DateTime endDate,
-  }) {
+  }) async {
     _validate(name, startDate, endDate);
     return _db.into(_db.academicTerms).insertReturning(
           AcademicTermsCompanion.insert(
@@ -45,7 +45,7 @@ class AcademicCalendarRepository {
     required String name,
     required DateTime startDate,
     required DateTime endDate,
-  }) {
+  }) async {
     _validate(name, startDate, endDate);
     return _db.into(_db.holidays).insertReturning(
           HolidaysCompanion.insert(

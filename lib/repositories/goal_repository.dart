@@ -34,7 +34,7 @@ class GoalRepository {
     required String title,
     String? subjectId,
     DateTime? targetDate,
-  }) {
+  }) async {
     final trimmed = title.trim();
     if (trimmed.isEmpty) {
       throw InvalidGoal('title must not be empty');
