@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 
 import 'connection/connection.dart';
+import 'tables/core_tables.dart' show uuidGen;
 import 'tables/teacher_content_tables.dart';
 
 part 'teacher_content_database.g.dart';
