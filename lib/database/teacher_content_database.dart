@@ -48,8 +48,11 @@ class TeacherContentDatabase extends _$TeacherContentDatabase {
   /// "Reset all data": removes every teacher lesson, page, node and
   /// attachment in one transaction.
   Future<void> wipeAll() => transaction(() async {
-        for (final table in allTables) {
-          await delete(table).go();
-        }
+        // Children first: pages, nodes and attachments reference lessons
+        // (foreign keys are ON), so the lessons table is emptied last.
+        await delete(teacherLessonPages).go();
+        await delete(teacherLessonNodes).go();
+        await delete(teacherLessonAttachments).go();
+        await delete(teacherLessons).go();
       });
 }
