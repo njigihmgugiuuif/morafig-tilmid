@@ -1,0 +1,45 @@
+name: Apply phase C files
+
+# One-time helper. Upload phase_c_files.zip to the repository ROOT (one
+# upload), then run this workflow manually (Actions -> Apply phase C files ->
+# Run workflow). It unpacks the zip keeping every file's own folder path
+# (overwriting the 10 modified files, adding the 31 new ones), deletes the zip,
+# and commits to main. It never touches .github/, pubspec.yaml or any
+# dependency, and it does not deploy. Afterwards run "Flutter analyze and test"
+# manually (a commit made with the built-in token does not start other workflows).
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Unpack into place
+        shell: bash
+        run: |
+          set -e
+          [ -f phase_c_files.zip ] || { echo "phase_c_files.zip is not in the repository root. Upload it first."; exit 1; }
+          unzip -l phase_c_files.zip
+          if unzip -Z1 phase_c_files.zip | grep -E '^(\.github/|pubspec\.yaml|/|.*\.\./)'; then
+            echo "The zip contains a forbidden path."; exit 1
+          fi
+          unzip -o phase_c_files.zip
+          rm phase_c_files.zip
+          for f in lib/database/teacher_content_database.dart lib/repositories/teacher_content_repository.dart lib/ui/teacher/lesson_wizard_screen.dart test/teacher_package_test.dart; do
+            [ -f "$f" ] || { echo "MISSING after unpack: $f"; exit 1; }
+          done
+
+      - name: Commit
+        shell: bash
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add -A
+          git commit -m "Apply phase C: teacher section (separate teacher database, schemaVersion stays 6)"
+          git push
