@@ -167,6 +167,8 @@ List<LessonIssue> validateNodes(List<NodeDraft> nodes, int pageCount) {
   // Cycle check: each node has at most ONE requirement, so following the
   // chain from every node either ends or revisits a node.
   for (final n in nodes) {
+    // A node requiring itself is already reported as node_requires_self.
+    if (n.requiresKey == n.key) continue;
     final seen = <String>{n.key};
     var cur = n.requiresKey;
     while (cur != null && byKey.containsKey(cur)) {
