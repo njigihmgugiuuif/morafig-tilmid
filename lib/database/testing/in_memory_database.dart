@@ -14,12 +14,20 @@
 import 'package:drift/native.dart';
 
 import '../app_database.dart';
+import '../teacher_content_database.dart';
 
 /// Fully in-memory AppDatabase, never touches disk, never touches the
 /// network. Used by every test file in test/ so the test suite has zero
 /// filesystem dependency of its own.
 AppDatabase createInMemoryTestDatabase() {
   return AppDatabase(NativeDatabase.memory(
+    setup: (rawDb) => rawDb.execute('PRAGMA foreign_keys = ON;'),
+  ));
+}
+
+/// In-memory teacher-content database (separate from [AppDatabase]).
+TeacherContentDatabase createInMemoryTeacherDatabase() {
+  return TeacherContentDatabase(NativeDatabase.memory(
     setup: (rawDb) => rawDb.execute('PRAGMA foreign_keys = ON;'),
   ));
 }

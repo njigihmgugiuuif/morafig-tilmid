@@ -167,6 +167,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (confirmed != true) return;
 
     await ResetRepository(appState.db).wipeAllData();
+    // Teacher lessons live in their own database (DEVIATION-23): "reset all
+    // data" removes them too.
+    await appState.teacherDb.wipeAll();
     await appState.clearStudent();
     nav.popUntil((route) => route.isFirst);
   }

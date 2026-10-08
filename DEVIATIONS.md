@@ -469,3 +469,31 @@ DAO, repository, or test was removed or renamed.
 **Not in B (later phases):** the screens that enter reality, show the plan, record actuals or show explanations (D-2/E); teacher content (C); a UI for goals, terms and holidays; knowledge-gap findings; per-day workload limits.
 
 **Status:** UNVERIFIED — no Dart/Flutter SDK in the authoring environment. Verified only by a GitHub Actions run (build_runner, analyze, tests).
+
+## DEVIATION-23 — C: teacher section and lesson content (2026-10-08)
+
+**Why.** The teacher section is an ORIGINAL requirement of the product (D-2 T01–T10, L01–L05, X02–X06). Before C there was no storage, no repository and no screen for it. C adds exactly that and nothing else: no engine, no algorithm, no earlier phase (D-1, A, B, D-2) is changed.
+
+**Schema decision (important).** `AppDatabase.schemaVersion` STAYS 6 and no main table, migration, fixture or test of the main schema was touched. Teacher content lives in a SEPARATE local database, `TeacherContentDatabase` (`lib/database/teacher_content_database.dart`), with its own `schemaVersion = 1`: tables `teacher_lessons`, `teacher_lesson_pages`, `teacher_lesson_nodes`, `teacher_lesson_attachments`. It has no foreign key into the main database; the optional curriculum link is a plain id checked against the main database (read-only, ACTIVE versions only) at link time. Connections: `openTeacherConnection()` (native file `teacher_content.sqlite`; web IndexedDB name `teacher_content_db`). "Reset all data" also wipes it.
+
+**Built.**
+- Teacher entry (T01), shell with four tabs (T02–T05: لوحتي، الدروس، المراجعة، الحساب), 4-step lesson path (T06–T09) with page images picked/captured from the phone (web/PWA), reorder, rotate, delete, nodes with page ranges and requirements, attachments, optional curriculum link, preview and status.
+- Student side: «المزيد» tab (library, separate teacher door, settings), library (L01), package import with preview (L02), lesson viewer (L03), node detail (L04), manage/delete imported content (L05). The student's name is now shown in the dashboard header.
+- Rules enforced in the repository, not only the UI: internal levels 1/2/3 only; the page images belong to the lesson's single level and are never copied to another; «القسم» is a separate free-text field that decides nothing; the badge «أستاذ · غير رسمي» is a domain constant shown on every student-side teacher item; status path draft → in review → published (editing a published lesson = new version, back to draft); imported lessons are read-only; teacher content never writes to the main database.
+- Teacher Package (temporary transport, JSON + base64 pages + SHA-256 fingerprint): export only for published lessons; import shows new / duplicate / newer version / older version / same-version conflict / corrupt / unsupported BEFORE writing.
+- In-house SHA-256 (`lib/domain/sha256.dart`) because no package may be added in C. `pubspec.yaml` and workflows are unchanged.
+
+**Not built, on purpose (no approved decision).** No extraction/OCR of text from the photos, no algorithm distributing image content into paths or branches, and no link from teacher content to Mastery/Memory/Planning engines: none of these is specified anywhere in the approved material, so none was invented. A teacher node is not a student KnowledgeNode; the lesson viewer's «أضف مهمة» uses the same subject+node+task path as the student's own «مهمة جديدة», with the subject name as typed (O-17).
+
+**Open points (recorded, NOT decided).**
+- O-1 real teacher identity / protection: the PIN is a comfort lock (SHA-256 of the PIN in local storage), the name an unverified label.
+- O-2 who reviews: temporary = the teacher is the only reviewer.
+- O-3 image formats, size limits, package container: temporary = JPEG/PNG/WebP detected from bytes, NO size limit, no compression, JSON+base64.
+- O-4 image/file picker package for native builds: not chosen; the web/PWA build uses the browser file input through `dart:html` (deprecated, not removed; does not compile under dart2wasm). Crop is NOT available (needs an image library) and is shown disabled.
+- O-5/O-6 type and values of «القسم», official level/track names: free text, no list.
+- O-7 package version/fingerprint/duplicate rules: temporary rules above.
+- O-17 mapping teacher subjects to student subjects. O-18 which student sees which lesson: NO rule invented; all imported lessons are listed, the level chips are the student's own filter.
+- Teacher content is NOT included in the JSON backup/restore of the main data (separate database); reset-all does delete it.
+- Attachments are stored and listed but cannot be opened in the viewer yet.
+
+**Status:** UNVERIFIED — no Dart/Flutter SDK in the authoring environment. Only static checks were run (bracket balance, repository-boundary script). Needs `build_runner`, `flutter analyze`, `flutter test` and a real phone test of file picking/camera on the PWA.

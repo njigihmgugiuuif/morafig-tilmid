@@ -4,6 +4,7 @@ import '../theme/app_theme.dart';
 import '../widgets/exit_confirm_scope.dart';
 import 'dashboard_screen.dart';
 import 'exams_screen.dart';
+import 'more_screen.dart';
 import 'priorities_screen.dart';
 import 'progress_screen.dart';
 import 'tasks_screen.dart';
@@ -34,6 +35,7 @@ class _HomeShellState extends State<HomeShell> {
     ProgressScreen(),
     PrioritiesScreen(),
     ExamsScreen(),
+    MoreScreen(),
   ];
 
   static const _destinations = [
@@ -42,6 +44,7 @@ class _HomeShellState extends State<HomeShell> {
     NavigationDestination(icon: Icon(Icons.trending_up_outlined), selectedIcon: Icon(Icons.trending_up), label: 'التقدم'),
     NavigationDestination(icon: Icon(Icons.flag_outlined), selectedIcon: Icon(Icons.flag), label: 'الأولويات'),
     NavigationDestination(icon: Icon(Icons.event_outlined), selectedIcon: Icon(Icons.event), label: 'الامتحانات'),
+    NavigationDestination(icon: Icon(Icons.more_horiz), selectedIcon: Icon(Icons.more_horiz), label: 'المزيد'),
   ];
 
   bool _handleBackPress() {

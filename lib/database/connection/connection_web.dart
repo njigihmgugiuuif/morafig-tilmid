@@ -1,7 +1,13 @@
 import 'package:drift/drift.dart';
 import 'package:drift/wasm.dart';
 
-QueryExecutor openConnection() {
+QueryExecutor openConnection() => _open('app_db');
+
+/// The separate teacher-content database (DEVIATION-23): its own named
+/// IndexedDB database, opened exactly like the main one.
+QueryExecutor openTeacherConnection() => _open('teacher_content_db');
+
+QueryExecutor _open(String databaseName) {
   return LazyDatabase(() async {
     // Resolve both asset URIs to ABSOLUTE URLs against the page's real
     // current location (Uri.base), instead of passing bare relative
@@ -27,7 +33,7 @@ QueryExecutor openConnection() {
     final driftWorkerUri = Uri.base.resolve('drift_worker.js');
 
     final result = await WasmDatabase.open(
-      databaseName: 'app_db',
+      databaseName: databaseName,
       sqlite3Uri: sqlite3Uri,
       driftWorkerUri: driftWorkerUri,
     ).timeout(

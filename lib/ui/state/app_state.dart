@@ -4,7 +4,10 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../database/app_database.dart';
+import '../../database/teacher_content_database.dart';
+import '../../repositories/teacher_content_repository.dart';
 import '../../services/planning_service.dart';
+import '../../services/teacher_session.dart';
 
 /// App-wide state: holds the single open database connection and the
 /// current student's id (this is a single-user personal app — one
@@ -20,6 +23,18 @@ class AppState extends ChangeNotifier {
 
   String? get studentId => _studentId;
   bool get hasStudent => _studentId != null;
+
+  /// The teacher entry of this version (phase C). Local only; see
+  /// TeacherSession for what it does NOT do (it cannot verify identity).
+  /// The separate teacher-content database (DEVIATION-23), opened on first
+  /// use so a student who never opens the library pays nothing for it.
+  late final TeacherContentDatabase teacherDb = TeacherContentDatabase.open();
+
+  TeacherContentRepository get teacherRepository =>
+      TeacherContentRepository(teacherDb, mainDb: db);
+
+  late final TeacherSession teacherSession =
+      TeacherSession(SharedPrefsKeyValueStore());
 
   static const _studentIdKey = 'current_student_id';
 

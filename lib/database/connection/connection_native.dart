@@ -8,10 +8,15 @@ import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
-QueryExecutor openConnection() {
+QueryExecutor openConnection() => _open('student_app.sqlite');
+
+/// The separate teacher-content database (DEVIATION-23).
+QueryExecutor openTeacherConnection() => _open('teacher_content.sqlite');
+
+QueryExecutor _open(String fileName) {
   return LazyDatabase(() async {
     final dir = await getApplicationDocumentsDirectory();
-    final file = File(p.join(dir.path, 'student_app.sqlite'));
+    final file = File(p.join(dir.path, fileName));
     return NativeDatabase.createInBackground(
       file,
       setup: (rawDb) {

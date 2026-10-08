@@ -16,3 +16,8 @@ import 'connection_native.dart'
 QueryExecutor openConnection() {
   return _impl.openConnection();
 }
+
+/// Connection of the SEPARATE teacher-content database (DEVIATION-23).
+QueryExecutor openTeacherConnection() {
+  return _impl.openTeacherConnection();
+}

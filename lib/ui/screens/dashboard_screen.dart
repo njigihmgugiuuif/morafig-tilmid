@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../database/app_database.dart';
 import '../../repositories/exam_repository.dart';
+import '../../repositories/student_repository.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/async_section.dart';
@@ -40,7 +41,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         children: [
           Stack(
             children: [
-              _IdentityHeader(),
+              _IdentityHeader(db: db),
               Positioned(
                 top: 4,
                 left: 4,
@@ -104,6 +105,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 }
 
 class _IdentityHeader extends StatelessWidget {
+  const _IdentityHeader({required this.db});
+  final AppDatabase db;
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -117,10 +121,10 @@ class _IdentityHeader extends StatelessWidget {
         ),
         borderRadius: BorderRadius.circular(18),
       ),
-      child: const Column(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text(
+          const Text(
             'ثانوية رابح بطاط',
             textAlign: TextAlign.center,
             style: TextStyle(
@@ -144,6 +148,27 @@ class _IdentityHeader extends StatelessWidget {
             'المرافقة والتنظيم الدراسي طوال العام',
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.white70, fontSize: 13),
+          ),
+          // The student's name stays visible while the app is used (the
+          // name entered at first run, kept with the local session).
+          FutureBuilder<Student?>(
+            future: StudentRepository(db).readExisting(),
+            builder: (context, snap) {
+              final name = snap.data?.fullNameOrNickname.trim() ?? '';
+              if (name.isEmpty) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Text(
+                  'مرحبًا، $name',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              );
+            },
           ),
         ],
       ),

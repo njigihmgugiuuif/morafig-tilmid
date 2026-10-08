@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../repositories/student_repository.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
+import '../teacher/teacher_entry_screen.dart';
 import '../widgets/debounced_button.dart';
 
 /// First-run screen. Shown only when no Student row exists yet ("أول
@@ -151,6 +152,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         label: 'ابدأ',
                         icon: Icons.arrow_back,
                         onPressed: _submit,
+                      ),
+                      const SizedBox(height: 12),
+                      // A teacher may use this device without being a
+                      // student: the teacher entry is a separate door.
+                      TextButton.icon(
+                        onPressed: () => Navigator.of(context).push<void>(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const TeacherEntryScreen(),
+                          ),
+                        ),
+                        icon: const Icon(Icons.shield_outlined),
+                        label: const Text('أنا أستاذ: مدخل الأستاذ'),
                       ),
                     ],
                   ),
