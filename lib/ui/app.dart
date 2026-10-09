@@ -9,6 +9,9 @@ import '../database/app_database.dart';
 import 'screens/home_shell.dart';
 import 'screens/onboarding_screen.dart';
 import 'state/app_state.dart';
+import 'design/logo.dart';
+import 'design/primitives.dart';
+import 'design/states.dart';
 import 'theme/app_theme.dart';
 
 /// Root widget.
@@ -89,10 +92,24 @@ class _LoadingScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: AppColors.primary,
+    return Scaffold(
+      backgroundColor: const Color(0xFF064B4D),
       body: Center(
-        child: CircularProgressIndicator(color: Colors.white),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            MqLogo(size: 96, animate: true, onDark: true),
+            SizedBox(height: 20),
+            Text(
+              'مرافق التلميذ',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -105,27 +122,31 @@ class _BootstrapErrorScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.error_outline,
-                  size: 48, color: AppColors.danger),
-              const SizedBox(height: 12),
-              const Text('تعذّر تشغيل قاعدة البيانات المحلية',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              Text('$error',
-                  style: const TextStyle(fontSize: 12),
-                  textAlign: TextAlign.center),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: () => SystemNavigator.pop(),
-                child: const Text('إغلاق'),
-              ),
-            ],
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                MqErrorState(
+                  title: 'تعذّر تشغيل قاعدة البيانات المحلية',
+                  message:
+                      'بياناتك لم تُمَس. أغلق التطبيق وافتحه من جديد، وإن '
+                      'تكرر ذلك فأرسل النص الظاهر أدناه.',
+                  detail: '$error',
+                ),
+                const SizedBox(height: 16),
+                MqButton(
+                  label: 'إغلاق',
+                  icon: Icons.close,
+                  kind: MqButtonKind.secondary,
+                  block: true,
+                  onPressed: () => SystemNavigator.pop(),
+                ),
+              ],
+            ),
           ),
         ),
       ),

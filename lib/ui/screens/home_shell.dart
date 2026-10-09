@@ -1,25 +1,30 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_theme.dart';
+import '../design/motion.dart';
+import '../design/nav.dart';
 import '../widgets/exit_confirm_scope.dart';
 import 'dashboard_screen.dart';
-import 'exams_screen.dart';
 import 'more_screen.dart';
-import 'priorities_screen.dart';
 import 'progress_screen.dart';
-import 'tasks_screen.dart';
+import 'tasks_hub_screen.dart';
+import 'today_screen.dart';
 
-/// Persistent shell for the 5 main sections, shown after onboarding is
-/// complete. Uses IndexedStack (not re-pushing a new route per tab) so
-/// switching tabs never grows the Navigator back-stack and each tab keeps
-/// its own scroll/tab-controller state when you switch away and back.
+/// Persistent shell of the student's five sections (D-1 DS3, D-2 X04):
+/// الرئيسية · اليوم · المهام · التقدم · المزيد.
 ///
-/// Android/system back-button behavior implemented here explicitly:
-///   1st back press while on a tab other than "الرئيسية" → jump to
-///      "الرئيسية" (matches user expectation: back = go toward home, not
-///      exit).
-///   back press while already on "الرئيسية" → falls through to
-///      ExitConfirmScope's double-press-to-exit logic.
+/// Where the earlier six tabs went (nothing was removed):
+///   - «الأولويات» is the second page of «المهام» (TasksHubScreen).
+///   - «الامتحانات» is an entry of «المزيد».
+///
+/// Tabs live in one stack (MqTabStack) so switching never grows the
+/// Navigator back-stack and every tab keeps its own state.
+///
+/// Back (D-2 X01):
+///   - on a tab other than «الرئيسية» → jump to «الرئيسية» (not exit);
+///   - on «الرئيسية» → ExitConfirmScope's double-press logic (O-15: PopScope
+///     over the existing Navigator, no new package).
+/// Pushed screens, dialogs and sheets are routes above this shell, so the
+/// Navigator closes them first.
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
   @override
@@ -29,22 +34,27 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> {
   int _index = 0;
 
-  static const _screens = [
-    DashboardScreen(),
-    TasksScreen(),
-    ProgressScreen(),
-    PrioritiesScreen(),
-    ExamsScreen(),
-    MoreScreen(),
-  ];
-
-  static const _destinations = [
-    NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'الرئيسية'),
-    NavigationDestination(icon: Icon(Icons.checklist_outlined), selectedIcon: Icon(Icons.checklist), label: 'المهام'),
-    NavigationDestination(icon: Icon(Icons.trending_up_outlined), selectedIcon: Icon(Icons.trending_up), label: 'التقدم'),
-    NavigationDestination(icon: Icon(Icons.flag_outlined), selectedIcon: Icon(Icons.flag), label: 'الأولويات'),
-    NavigationDestination(icon: Icon(Icons.event_outlined), selectedIcon: Icon(Icons.event), label: 'الامتحانات'),
-    NavigationDestination(icon: Icon(Icons.more_horiz), selectedIcon: Icon(Icons.more_horiz), label: 'المزيد'),
+  static const _items = <MqNavItem>[
+    MqNavItem(
+        label: 'الرئيسية',
+        icon: Icons.home_outlined,
+        selectedIcon: Icons.home_rounded),
+    MqNavItem(
+        label: 'اليوم',
+        icon: Icons.calendar_today_outlined,
+        selectedIcon: Icons.calendar_today_rounded),
+    MqNavItem(
+        label: 'المهام',
+        icon: Icons.checklist_rounded,
+        selectedIcon: Icons.checklist_rounded),
+    MqNavItem(
+        label: 'التقدم',
+        icon: Icons.show_chart_rounded,
+        selectedIcon: Icons.insights_rounded),
+    MqNavItem(
+        label: 'المزيد',
+        icon: Icons.grid_view_outlined,
+        selectedIcon: Icons.grid_view_rounded),
   ];
 
   bool _handleBackPress() {
@@ -55,6 +65,8 @@ class _HomeShellState extends State<HomeShell> {
     return true; // already home — let ExitConfirmScope run its logic
   }
 
+  void _goTo(int i) => setState(() => _index = i);
+
   @override
   Widget build(BuildContext context) {
     return ExitConfirmScope(
@@ -62,14 +74,21 @@ class _HomeShellState extends State<HomeShell> {
       child: Scaffold(
         body: SafeArea(
           bottom: false,
-          child: IndexedStack(index: _index, children: _screens),
+          child: MqTabStack(
+            index: _index,
+            children: [
+              DashboardScreen(onGoToTab: _goTo, active: _index == 0),
+              TodayScreen(active: _index == 1),
+              TasksHubScreen(active: _index == 2),
+              const ProgressScreen(),
+              const MoreScreen(),
+            ],
+          ),
         ),
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: _index,
-          onDestinationSelected: (i) => setState(() => _index = i),
-          backgroundColor: Colors.white,
-          indicatorColor: AppColors.primary.withOpacity(0.12),
-          destinations: _destinations,
+        bottomNavigationBar: MqBottomNav(
+          items: _items,
+          selected: _index,
+          onSelected: _goTo,
         ),
       ),
     );

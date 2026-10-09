@@ -57,14 +57,51 @@ class AppState extends ChangeNotifier {
       }
     }
 
+    final state = AppState._(db, verifiedId);
+
     // B: the app-open trigger of the planning service (there is no
     // background work without a server). Fire-and-forget: it never delays
     // start-up and never throws (errors are collected inside the result).
+    // E: the result is now KEPT (see [lastAppOpen]) so a screen can show what
+    // happened when the app was opened (D-2 Q05); before E it was discarded.
     if (verifiedId != null) {
-      unawaited(PlanningService(db).onAppOpen());
+      unawaited(state.runAppOpen());
     }
 
-    return AppState._(db, verifiedId);
+    return state;
+  }
+
+  AppOpenResult? _lastAppOpen;
+  String? _lastAppOpenError;
+  bool _appOpenRunning = false;
+
+  /// What the last app-open run did (null until it finishes, or when there is
+  /// no student). Written only by [runAppOpen].
+  AppOpenResult? get lastAppOpen => _lastAppOpen;
+
+  /// Set only if the run itself threw (the service normally collects errors
+  /// inside the result instead of throwing).
+  String? get lastAppOpenError => _lastAppOpenError;
+
+  bool get appOpenRunning => _appOpenRunning;
+
+  /// Runs the planning service's app-open step and keeps its result. The
+  /// service decides whether anything changes (its own hysteresis); this only
+  /// stores and announces the outcome. A second call while one is running is
+  /// ignored.
+  Future<void> runAppOpen() async {
+    if (_studentId == null || _appOpenRunning) return;
+    _appOpenRunning = true;
+    notifyListeners();
+    try {
+      _lastAppOpen = await PlanningService(db).onAppOpen();
+      _lastAppOpenError = null;
+    } catch (e) {
+      _lastAppOpenError = '$e';
+    } finally {
+      _appOpenRunning = false;
+      notifyListeners();
+    }
   }
 
   Future<void> setStudentId(String id) async {
@@ -78,6 +115,8 @@ class AppState extends ChangeNotifier {
   /// returns to first-run onboarding.
   Future<void> clearStudent() async {
     _studentId = null;
+    _lastAppOpen = null;
+    _lastAppOpenError = null;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_studentIdKey);
     notifyListeners();
