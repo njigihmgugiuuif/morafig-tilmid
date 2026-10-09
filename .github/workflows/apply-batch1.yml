@@ -1,0 +1,49 @@
+name: Apply phase E batch 1 files
+
+# One-time helper (same pattern as "Apply phase C files"). Upload
+# batch1_files.zip to the repository ROOT (one upload), then run this workflow
+# manually (Actions -> Apply phase E batch 1 files -> Run workflow). It unpacks
+# the zip keeping every file's own folder path (24 files, all under lib/ui/),
+# deletes the zip and commits to main. It refuses any path outside lib/ui/, so
+# it never touches .github/, pubspec.yaml, tests or any dependency, and it does
+# not deploy. Afterwards run "Flutter analyze and test" manually (a commit made
+# with the built-in token does not start other workflows).
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Unpack into place
+        shell: bash
+        run: |
+          set -e
+          [ -f batch1_files.zip ] || { echo "batch1_files.zip is not in the repository root. Upload it first."; exit 1; }
+          unzip -l batch1_files.zip
+          if unzip -Z1 batch1_files.zip | grep -v '/$' | grep -vE '^lib/ui/'; then
+            echo "The zip contains a path outside lib/ui/."; exit 1
+          fi
+          if unzip -Z1 batch1_files.zip | grep -E '(^/|\.\./)'; then
+            echo "The zip contains an unsafe path."; exit 1
+          fi
+          unzip -o batch1_files.zip
+          rm batch1_files.zip
+          for f in lib/ui/design/tokens.dart lib/ui/design/primitives.dart lib/ui/state/home_data.dart lib/ui/widgets/priority_views.dart lib/ui/screens/home_shell.dart lib/ui/screens/dashboard_screen.dart lib/ui/screens/now_screen.dart lib/ui/screens/task_detail_screen.dart lib/ui/screens/onboarding_screen.dart; do
+            [ -f "$f" ] || { echo "MISSING after unpack: $f"; exit 1; }
+          done
+
+      - name: Commit
+        shell: bash
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add -A
+          git commit -m "Apply phase E batch 1: new UI foundation (design system, shell, home, now, task detail, today, tasks, more, onboarding)"
+          git push
