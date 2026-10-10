@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 
-/// Prevents the classic "tapped Save twice, got two records" bug. Wraps
-/// any async action: the button disables itself and shows a small
-/// spinner the instant it's tapped, and re-enables only after the action
-/// finishes (success or error). Use this for every button that writes to
-/// the database (add task, save onboarding, mark complete, etc).
-class DebouncedButton extends StatefulWidget {
+import '../design/primitives.dart';
+
+/// Prevents the classic "tapped Save twice, got two records" bug. Wraps an
+/// async action: the button disables itself and shows a spinner the instant
+/// it is tapped, and re-enables only after the action finishes.
+///
+/// Kept for the screens that still use it; it is now a thin wrapper over
+/// [MqButton], which has the same guard built in.
+class DebouncedButton extends StatelessWidget {
   const DebouncedButton({
     super.key,
     required this.label,
@@ -18,37 +21,12 @@ class DebouncedButton extends StatefulWidget {
   final Future<void> Function() onPressed;
 
   @override
-  State<DebouncedButton> createState() => _DebouncedButtonState();
-}
-
-class _DebouncedButtonState extends State<DebouncedButton> {
-  bool _busy = false;
-
-  Future<void> _handleTap() async {
-    if (_busy) return; // hard guard against double/rapid taps
-    setState(() => _busy = true);
-    try {
-      await widget.onPressed();
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return ElevatedButton.icon(
-      onPressed: _busy ? null : _handleTap,
-      icon: _busy
-          ? const SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: Colors.white,
-              ),
-            )
-          : Icon(widget.icon ?? Icons.check),
-      label: Text(_busy ? 'جارٍ الحفظ...' : widget.label),
+    return MqButton(
+      label: label,
+      icon: icon ?? Icons.check,
+      block: true,
+      onPressed: onPressed,
     );
   }
 }

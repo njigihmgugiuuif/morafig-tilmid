@@ -5,12 +5,18 @@ import '../design/primitives.dart';
 import '../design/tokens.dart';
 import '../library/library_screen.dart';
 import '../teacher/teacher_entry_screen.dart';
+import '../goals/goals_screen.dart';
+import '../planning/energy_focus_screen.dart';
+import '../planning/plan_calendar_screen.dart';
+import '../planning/plan_review_screen.dart';
+import '../reality/reality_hub_screen.dart';
+import '../recovery/emergency_screen.dart';
+import '../recovery/recovery_screen.dart';
 import 'exams_screen.dart';
 import 'settings_screen.dart';
 
 /// «المزيد» (D-2 X04): exams, the library of teacher lessons, the SEPARATE
-/// teacher entry, and settings. The reality, recovery, goals and curriculum
-/// entries join this list in later batches of phase E. The teacher entry is
+/// teacher entry, and settings. The teacher entry is
 /// its own door (it opens the entry screen, not a setting).
 class MoreScreen extends StatelessWidget {
   const MoreScreen({super.key});
@@ -29,6 +35,55 @@ class MoreScreen extends StatelessWidget {
           title: 'الامتحانات والاستحقاقات',
           subtitle: 'أقرب الامتحانات وإضافة امتحان',
           onTap: () => open(const ExamsScreen()),
+        ),
+        _Entry(
+          icon: Icons.tune_rounded,
+          tone: MqTone.brand,
+          title: 'واقعي',
+          subtitle: 'أسبوعك، أوقات فراغك، الظروف الطارئة، الفصول والعطل',
+          onTap: () => open(const RealityHubScreen()),
+        ),
+        _Entry(
+          icon: Icons.autorenew_rounded,
+          tone: MqTone.info,
+          title: 'مراجعة الخطة',
+          subtitle: 'إعادة التخطيط، المخطَّط مقابل الفعلي، الفجوات',
+          onTap: () => open(const PlanReviewScreen()),
+        ),
+        _Entry(
+          icon: Icons.calendar_month_outlined,
+          tone: MqTone.neutral,
+          title: 'الشهر والسنة',
+          subtitle: 'نظرة على الجلسات المخطَّطة',
+          onTap: () => open(const PlanCalendarScreen()),
+        ),
+        _Entry(
+          icon: Icons.history_toggle_off_rounded,
+          tone: MqTone.accent,
+          title: 'ما فاتني',
+          subtitle: 'جلسات انتهت دون تنفيذ وقرار التعافي',
+          onTap: () => open(const RecoveryScreen()),
+        ),
+        _Entry(
+          icon: Icons.bolt_rounded,
+          tone: MqTone.overdue,
+          title: 'وضع الطوارئ',
+          subtitle: 'هل هو مفعّل ولماذا',
+          onTap: () => open(const EmergencyScreen()),
+        ),
+        _Entry(
+          icon: Icons.flag_outlined,
+          tone: MqTone.ok,
+          title: 'أهدافي',
+          subtitle: 'سجّل أهدافك وتابعها',
+          onTap: () => open(const GoalsScreen()),
+        ),
+        _Entry(
+          icon: Icons.battery_charging_full_outlined,
+          tone: MqTone.neutral,
+          title: 'طاقتي وتركيزي',
+          subtitle: 'سجلّ بسيط لحالتك',
+          onTap: () => open(const EnergyFocusScreen()),
         ),
         _Entry(
           icon: Icons.menu_book_outlined,

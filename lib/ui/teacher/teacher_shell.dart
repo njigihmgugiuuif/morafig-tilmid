@@ -92,7 +92,7 @@ class _TeacherShellState extends State<TeacherShell> {
         ),
         bottomNavigationBar: NavigationBar(
           selectedIndex: _index,
-          backgroundColor: Colors.white,
+          backgroundColor: Theme.of(context).colorScheme.surface,
           indicatorColor: AppColors.primary.withOpacity(0.12),
           onDestinationSelected: (i) => setState(() => _index = i),
           destinations: const [

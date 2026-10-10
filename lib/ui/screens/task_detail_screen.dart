@@ -10,6 +10,7 @@ import '../design/states.dart';
 import '../design/tokens.dart';
 import '../state/app_state.dart';
 import '../state/home_data.dart';
+import '../widgets/not_now_sheet.dart';
 import '../widgets/priority_views.dart';
 
 class _DetailData {
@@ -216,6 +217,16 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   if (ok && context.mounted) setState(() => _tick++);
                 },
               ),
+            if (!complete) ...[
+              const SizedBox(height: 8),
+              MqButton(
+                label: 'ليست مناسبة الآن',
+                icon: Icons.snooze_rounded,
+                kind: MqButtonKind.ghost,
+                block: true,
+                onPressed: () => showNotNowSheet(context, db: db, task: t),
+              ),
+            ],
           ],
         );
       },

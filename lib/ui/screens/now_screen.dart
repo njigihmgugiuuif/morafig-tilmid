@@ -7,6 +7,7 @@ import '../design/progress.dart';
 import '../design/tokens.dart';
 import '../state/app_state.dart';
 import '../state/home_data.dart';
+import '../widgets/not_now_sheet.dart';
 import '../widgets/priority_views.dart';
 import 'task_detail_screen.dart';
 
@@ -145,6 +146,17 @@ class NowScreen extends StatelessWidget {
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 6),
+        MqButton(
+          label: 'ليست مناسبة الآن',
+          icon: Icons.snooze_rounded,
+          kind: MqButtonKind.ghost,
+          block: true,
+          onPressed: () async {
+            final ok = await showNotNowSheet(context, db: db, task: task);
+            if (ok && context.mounted) Navigator.of(context).pop(true);
+          },
         ),
       ],
     );

@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
 
+import '../design/primitives.dart';
+import '../design/states.dart';
+import '../design/tokens.dart';
+
 /// Uniform loading / error / empty / data handling for every screen that
-/// reads from the database. Every list-driven screen in this app goes
-/// through this widget instead of hand-rolling its own FutureBuilder, so
-/// the "what does a beginner forget" cases (stuck spinners, silent
-/// failures, blank screens with no explanation) are handled once, in one
-/// place, correctly.
+/// reads from the database. Every list-driven screen goes through this
+/// widget (or [MqAsync]) instead of hand-rolling its own FutureBuilder, so
+/// stuck spinners, silent failures and blank screens are handled once.
+///
+/// The public API is unchanged; only the look moved to the Mq* design system
+/// (skeleton while loading, designed error with the raw detail, quiet empty
+/// state), so it follows the light and dark themes.
 class AsyncSection<T> extends StatelessWidget {
   const AsyncSection({
     super.key,
@@ -24,50 +30,38 @@ class AsyncSection<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = context.mq;
     return FutureBuilder<T>(
-      // A fresh Future per build would restart the spinner on every
-      // rebuild (e.g. keyboard opening) — future is created once by the
-      // caller and passed in, not created here.
       future: future(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 48),
-            child: Center(child: CircularProgressIndicator()),
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: MqLoadingCard(),
           );
         }
         if (snapshot.hasError) {
           return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
-            child: Column(
-              children: [
-                const Icon(Icons.error_outline, size: 40, color: Colors.red),
-                const SizedBox(height: 12),
-                const Text(
-                  'تعذّر تحميل البيانات',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  '${snapshot.error}',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-              ],
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: MqErrorState(
+              title: 'تعذّر تحميل البيانات',
+              message: 'بياناتك لم تُمَس.',
+              detail: '${snapshot.error}',
             ),
           );
         }
         final data = snapshot.data;
         if (data == null || (isEmpty != null && isEmpty!(data))) {
           return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 40),
+            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 8),
             child: Column(
               children: [
-                Icon(emptyIcon, size: 40, color: Colors.grey.shade400),
+                MqIconTile(icon: emptyIcon, tone: MqTone.neutral, size: 48),
                 const SizedBox(height: 10),
                 Text(
                   emptyMessage,
-                  style: TextStyle(color: Colors.grey.shade600),
+                  textAlign: TextAlign.center,
+                  style: MqType.small.copyWith(color: p.ink2),
                 ),
               ],
             ),

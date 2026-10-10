@@ -1,3 +1,5 @@
+import 'package:drift/drift.dart' show Value;
+
 import '../database/app_database.dart';
 import '../database/tables/audit_tables.dart';
 import 'append_only_repository.dart';
@@ -23,6 +25,24 @@ class HumanOverrideRepository
   HumanOverrideRepository(AppDatabase db) : super(db, db.humanOverrides);
 
   AppDatabase get _db => db as AppDatabase;
+
+  /// Records what the student did with a suggestion (append-only). The
+  /// snapshot is the Explanation the system showed at that moment, so the
+  /// override always points at «what the system believed». Writing this row
+  /// changes nothing else: no priority, no plan.
+  Future<HumanOverride> record({
+    required String taskId,
+    required String action,
+    required String explanationId,
+    String? reportedReason,
+  }) {
+    return insertRow(HumanOverridesCompanion.insert(
+      taskId: taskId,
+      action: action,
+      systemStateSnapshotId: explanationId,
+      reportedReason: Value(reportedReason),
+    ));
+  }
 
   Future<List<HumanOverride>> readByTask(String taskId) =>
       (_db.select(_db.humanOverrides)..where((t) => t.taskId.equals(taskId)))

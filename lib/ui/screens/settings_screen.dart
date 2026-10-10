@@ -10,6 +10,7 @@ import '../../repositories/student_repository.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/debounced_button.dart';
+import '../widgets/install_prompt.dart';
 
 /// Settings: edit the student's basic profile, back up / restore all data
 /// through the clipboard (fully offline), and an explicit, confirmed
@@ -222,6 +223,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ],
                   ),
                 ),
+                const SizedBox(height: 28),
+                const _SectionHeader('التطبيق'),
+                const InstallAppTile(),
                 const SizedBox(height: 28),
                 const _SectionHeader('النسخ الاحتياطي (بدون إنترنت)'),
                 Text(
