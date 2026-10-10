@@ -28,6 +28,29 @@
 </head>
 <body>
   <script>
+    // «تثبيت التطبيق»: keep the browser's install prompt for the Flutter side.
+    window.__mqDeferredInstall = null;
+    window.addEventListener('beforeinstallprompt', function (e) {
+      e.preventDefault();
+      window.__mqDeferredInstall = e;
+    });
+    window.addEventListener('appinstalled', function () {
+      window.__mqDeferredInstall = null;
+    });
+    window.mqCanInstall = function () { return !!window.__mqDeferredInstall; };
+    window.mqIsStandalone = function () {
+      return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+        window.navigator.standalone === true;
+    };
+    window.mqInstall = function () {
+      var e = window.__mqDeferredInstall;
+      if (!e) return Promise.resolve(false);
+      window.__mqDeferredInstall = null;
+      e.prompt();
+      return e.userChoice.then(function (c) { return c.outcome === 'accepted'; });
+    };
+  </script>
+  <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(function (registrations) {
         for (const registration of registrations) {
