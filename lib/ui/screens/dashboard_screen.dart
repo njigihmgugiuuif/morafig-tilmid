@@ -438,13 +438,16 @@ class _WorkloadCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.mq;
-    final (label, tone) = switch (state.status) {
-      'underload' => ('عبء خفيف', MqTone.ok),
-      'balanced' => ('عبء متوازن', MqTone.brand),
-      'overload' => ('عبء زائد', MqTone.accent),
-      'impossible' => ('غير قابل للتحقيق بالوقت الحالي', MqTone.overdue),
-      _ => ('عبء غير معروف', MqTone.neutral),
-    };
+    final noTime = state.totalAvailableTimeMinutes <= 0;
+    final (label, tone) = noTime
+        ? ('لم تُدخل أوقات فراغك بعد', MqTone.neutral)
+        : switch (state.status) {
+            'underload' => ('عبء خفيف', MqTone.ok),
+            'balanced' => ('عبء متوازن', MqTone.brand),
+            'overload' => ('عبء زائد', MqTone.accent),
+            'impossible' => ('غير قابل للتحقيق بالوقت الحالي', MqTone.overdue),
+            _ => ('عبء غير معروف', MqTone.neutral),
+          };
     return MqCard(
       kind: MqCardKind.soft,
       child: Row(
@@ -457,7 +460,9 @@ class _WorkloadCard extends StatelessWidget {
               children: [
                 Text(label, style: MqType.h3.copyWith(color: p.ink)),
                 Text(
-                  'المطلوب ${state.totalEstimatedTimeNeededMinutes} د · المتاح ${state.totalAvailableTimeMinutes} د',
+                  noTime
+                      ? 'أضفها من «المزيد ← واقعي» ليحسب المخطِّط العبء. المطلوب ${state.totalEstimatedTimeNeededMinutes} د'
+                      : 'المطلوب ${state.totalEstimatedTimeNeededMinutes} د · المتاح ${state.totalAvailableTimeMinutes} د',
                   style: MqType.caption.copyWith(color: p.ink3),
                 ),
               ],
