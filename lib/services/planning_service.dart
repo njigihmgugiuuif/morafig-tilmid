@@ -29,6 +29,7 @@ import '../repositories/recovery_repository.dart';
 import '../repositories/student_repository.dart';
 import '../repositories/study_session_repository.dart';
 import '../repositories/weekly_template_repository.dart';
+import 'time_learning_service.dart';
 import '../repositories/workload_repository.dart';
 
 /// Result of one plan generation (B).
@@ -442,12 +443,20 @@ class PlanningService {
     required String sessionId,
     required DateTime actualStart,
     required DateTime actualEnd,
-  }) =>
-      StudySessionRepository(_db).recordActual(
-        sessionId: sessionId,
-        actualStart: actualStart,
-        actualEnd: actualEnd,
-      );
+  }) async {
+    final saved = await StudySessionRepository(_db).recordActual(
+      sessionId: sessionId,
+      actualStart: actualStart,
+      actualEnd: actualEnd,
+    );
+    // The recorded duration also teaches the time estimate of the subject.
+    // That estimate is derived and can be recomputed, so a failure here must
+    // not undo or hide the fact that was just stored.
+    try {
+      await TimeLearningService(_db).learnFromSession(sessionId);
+    } catch (_) {}
+    return saved;
+  }
 
   /// Planned vs actual per task for one week (the engine's own comparison).
   Future<List<TaskReality>> compareWeekWithActual({DateTime? weekOf}) async {

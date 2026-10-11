@@ -16,6 +16,7 @@ import '../design/sheet.dart';
 import '../design/states.dart';
 import '../design/tokens.dart';
 import '../state/app_state.dart';
+import '../widgets/unsaved_changes_scope.dart';
 
 class _ExamRow {
   const _ExamRow(this.exam, this.subjectName, this.context);
@@ -297,7 +298,12 @@ class _AddExamBodyState extends State<_AddExamBody> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => UnsavedChangesScope(
+        isDirty: () => _subject.text.trim().isNotEmpty,
+        child: _form(context),
+      );
+
+  Widget _form(BuildContext context) {
     final p = context.mq;
     return Form(
       key: _formKey,

@@ -9,11 +9,14 @@ import '../../repositories/content_repository.dart';
 import '../../repositories/study_session_repository.dart';
 import '../../services/planning_service.dart';
 import '../state/app_state.dart';
+import '../design/charts.dart';
 import '../design/motion.dart';
 import '../design/primitives.dart';
 import '../design/progress.dart';
+import '../design/sheet.dart';
 import '../design/states.dart';
 import '../design/tokens.dart';
+import '../widgets/unsaved_changes_scope.dart';
 
 /// «اليوم» (D-1 S05 / S06): the plan of the day and of the week, read from the
 /// study sessions that PlanningService (phase B) saved. The Sunday-first week
@@ -249,7 +252,7 @@ class _TodayScreenState extends State<TodayScreen> {
       else if (_week)
         ..._weekList(data)
       else
-        ...data.shown.map((s) => _SessionTile(session: s, data: data)),
+        ...data.shown.map((s) => _SessionTile(session: s, data: data, onChanged: _reload)),
       const SizedBox(height: 16),
       MqButton(
         label: data.weekHasSessions
@@ -287,6 +290,32 @@ class _TodayScreenState extends State<TodayScreen> {
     final weekStart = WeekCalendar.startOfWeek(DateTime.now());
     final days = WeekCalendar.daysOf(weekStart);
     final widgets = <Widget>[];
+    if (data.shown.isNotEmpty) {
+      final rows = <MqPairRow>[];
+      for (final day in days) {
+        final next = DateTime(day.year, day.month, day.day + 1);
+        final inDay = data.shown
+            .where((s) =>
+                s.plannedStart.isBefore(next) && s.plannedEnd.isAfter(day))
+            .toList();
+        final actual = inDay.fold<int>(
+            0, (a, s) => a + (s.observedDurationMinutes ?? 0));
+        rows.add(MqPairRow(
+            WeekCalendar.arabicDayNames[WeekCalendar.indexInWeek(day)],
+            _minutes(inDay).toDouble(),
+            actual.toDouble()));
+      }
+      widgets.add(Padding(
+        padding: const EdgeInsets.only(top: 12),
+        child: MqCard(
+          child: MqPairedBars(
+            rows: rows,
+            firstLabel: 'المخطَّط',
+            secondLabel: 'الفعلي',
+          ),
+        ),
+      ));
+    }
     for (final day in days) {
       final next = DateTime(day.year, day.month, day.day + 1);
       final inDay = data.shown
@@ -311,7 +340,7 @@ class _TodayScreenState extends State<TodayScreen> {
         widgets.add(Text('لا جلسات مخطَّطة',
             style: MqType.caption.copyWith(color: p.ink3)));
       } else {
-        widgets.addAll(inDay.map((s) => _SessionTile(session: s, data: data)));
+        widgets.addAll(inDay.map((s) => _SessionTile(session: s, data: data, onChanged: _reload)));
       }
     }
     return widgets;
@@ -387,9 +416,21 @@ class _Stat extends StatelessWidget {
 }
 
 class _SessionTile extends StatelessWidget {
-  const _SessionTile({required this.session, required this.data});
+  const _SessionTile(
+      {required this.session, required this.data, required this.onChanged});
   final StudySession session;
   final _PlanData data;
+  final VoidCallback onChanged;
+
+  Future<void> _record(BuildContext context) async {
+    final ok = await showMqSheet<bool>(
+      context,
+      title: 'سجّل ما درسته فعلًا',
+      subtitle: data.taskNames[session.taskId],
+      builder: (ctx) => _RecordActualBody(session: session),
+    );
+    if (ok == true) onChanged();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -409,9 +450,12 @@ class _SessionTile extends StatelessWidget {
     }
     final subject = data.subjectNames[session.taskId] ?? '';
     final st = p.toneFor(subject);
+    final canRecord =
+        session.actualStart == null && session.plannedStart.isBefore(now);
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: MqCard(
+        onTap: canRecord ? () => _record(context) : null,
         padding: const EdgeInsets.all(12),
         child: IntrinsicHeight(
           child: Row(
@@ -447,6 +491,10 @@ class _SessionTile extends StatelessWidget {
                       [
                         if (subject.isNotEmpty) subject,
                         '${session.plannedEnd.difference(session.plannedStart).inMinutes} دقيقة',
+                        if (session.actualStart != null)
+                          'فعليًا ${session.observedDurationMinutes ?? 0} د'
+                        else if (canRecord)
+                          'اضغط لتسجيل ما درسته',
                       ].join(' · '),
                       style: MqType.caption.copyWith(color: p.ink3),
                     ),
@@ -518,6 +566,110 @@ class _ResultCard extends StatelessWidget {
                     style: MqType.small.copyWith(color: p.ink2)),
               ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+
+/// «سجّل ما درسته فعلًا» (P03): the start and end of what really happened.
+/// It is stored as a fact (one time per session) and shows up in the
+/// planned-versus-actual comparison. It does not mark the task finished;
+/// that is done from the task itself with the understanding question.
+class _RecordActualBody extends StatefulWidget {
+  const _RecordActualBody({required this.session});
+  final StudySession session;
+  @override
+  State<_RecordActualBody> createState() => _RecordActualBodyState();
+}
+
+class _RecordActualBodyState extends State<_RecordActualBody> {
+  late TimeOfDay _start;
+  late TimeOfDay _end;
+  late final TimeOfDay _start0;
+  late final TimeOfDay _end0;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    final a = widget.session.plannedStart.toLocal();
+    final b = widget.session.plannedEnd.toLocal();
+    _start = TimeOfDay(hour: a.hour, minute: a.minute);
+    _end = TimeOfDay(hour: b.hour, minute: b.minute);
+    _start0 = _start;
+    _end0 = _end;
+  }
+
+  String _fmt(TimeOfDay t) =>
+      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
+  Future<void> _pick(bool start) async {
+    final v = await showTimePicker(
+        context: context, initialTime: start ? _start : _end);
+    if (v != null) setState(() => start ? _start = v : _end = v);
+  }
+
+  Future<void> _save() async {
+    final day = widget.session.plannedStart.toLocal();
+    final s = DateTime(day.year, day.month, day.day, _start.hour, _start.minute);
+    final e = DateTime(day.year, day.month, day.day, _end.hour, _end.minute);
+    if (!e.isAfter(s)) {
+      setState(() => _error = 'وقت النهاية يجب أن يكون بعد البداية.');
+      return;
+    }
+    if (s.isAfter(DateTime.now())) {
+      setState(() => _error = 'لا يمكن تسجيل وقت لم يأتِ بعد.');
+      return;
+    }
+    try {
+      await PlanningService(context.read<AppState>().db).recordSessionActual(
+        sessionId: widget.session.id,
+        actualStart: s.toUtc(),
+        actualEnd: e.toUtc(),
+      );
+      if (mounted) Navigator.of(context).pop(true);
+    } catch (_) {
+      setState(() => _error = 'تعذّر الحفظ، ربما سُجّلت هذه الجلسة من قبل.');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.mq;
+    return UnsavedChangesScope(
+      isDirty: () => _start != _start0 || _end != _end0,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('بدأتُ في أي وقت وانتهيتُ متى؟ عدّل الوقتين إن اختلفا عن المخطَّط.',
+              style: MqType.small.copyWith(color: p.ink2)),
+          const SizedBox(height: 12),
+          Row(children: [
+            Expanded(
+                child: MqButton(
+                    label: 'من ${_fmt(_start)}',
+                    icon: Icons.schedule_rounded,
+                    kind: MqButtonKind.secondary,
+                    onPressed: () => _pick(true))),
+            const SizedBox(width: 10),
+            Expanded(
+                child: MqButton(
+                    label: 'إلى ${_fmt(_end)}',
+                    icon: Icons.schedule_rounded,
+                    kind: MqButtonKind.secondary,
+                    onPressed: () => _pick(false))),
+          ]),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(_error!,
+                  style: MqType.caption.copyWith(color: p.overdue)),
+            ),
+          const SizedBox(height: 14),
+          MqButton(label: 'حفظ', block: true, onPressed: _save),
         ],
       ),
     );

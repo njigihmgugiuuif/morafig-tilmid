@@ -8,8 +8,11 @@ import '../../export_import/export_import_service.dart';
 import '../../repositories/reset_repository.dart';
 import '../../repositories/student_repository.dart';
 import '../state/app_state.dart';
-import '../theme/app_theme.dart';
-import '../widgets/debounced_button.dart';
+import '../design/page.dart';
+import '../design/primitives.dart';
+import '../design/states.dart';
+import '../design/tokens.dart';
+import '../widgets/unsaved_changes_scope.dart';
 import '../widgets/install_prompt.dart';
 
 /// Settings: edit the student's basic profile, back up / restore all data
@@ -26,6 +29,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   double _sleepHours = 7;
+  String _name0 = '';
+  double _sleep0 = 7;
   bool _loaded = false;
   bool _busy = false;
 
@@ -56,6 +61,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _nameController.text = student?.fullNameOrNickname ?? '';
       _sleepHours =
           ((student?.sleepFloorMinMinutes ?? 420) / 60).clamp(5.0, 10.0).toDouble();
+      _name0 = _nameController.text.trim();
+      _sleep0 = _sleepHours;
       _loaded = true;
     });
   }
@@ -70,6 +77,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       fullNameOrNickname: _nameController.text.trim(),
       sleepFloorMinMinutes: (_sleepHours * 60).round(),
     );
+    setState(() {
+      _name0 = _nameController.text.trim();
+      _sleep0 = _sleepHours;
+    });
     _snack('تم حفظ التعديلات');
   }
 
@@ -177,108 +188,118 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('الإعدادات')),
-      body: !_loaded
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                const _SectionHeader('الملف الشخصي'),
-                Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      TextFormField(
-                        controller: _nameController,
-                        textAlign: TextAlign.right,
-                        decoration: const InputDecoration(
-                          labelText: 'الاسم أو اللقب',
-                          prefixIcon: Icon(Icons.person_outline),
-                        ),
-                        validator: (v) => (v == null || v.trim().isEmpty)
-                            ? 'الرجاء إدخال اسمك'
-                            : null,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'الحد الأدنى لساعات النوم يوميًا: '
-                        '${_sleepHours.round()} ساعات',
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      Slider(
-                        value: _sleepHours,
-                        min: 5,
-                        max: 10,
-                        divisions: 10,
-                        label: '${_sleepHours.round()}',
-                        onChanged: (v) => setState(() => _sleepHours = v),
-                      ),
-                      DebouncedButton(
-                        label: 'حفظ التعديلات',
-                        icon: Icons.save_outlined,
-                        onPressed: _saveProfile,
-                      ),
-                    ],
+    final p = context.mq;
+    if (!_loaded) {
+      return const MqPage(
+        title: 'الإعدادات',
+        children: [MqLoadingCard(lines: 4)],
+      );
+    }
+    return UnsavedChangesScope(
+      isDirty: () =>
+          _nameController.text.trim() != _name0 || _sleepHours != _sleep0,
+      child: MqPage(
+        title: 'الإعدادات',
+        children: [
+          const MqSectionTitle('الملف الشخصي'),
+          MqCard(
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextFormField(
+                    controller: _nameController,
+                    decoration: const InputDecoration(
+                      labelText: 'الاسم أو اللقب',
+                      prefixIcon: Icon(Icons.person_outline),
+                    ),
+                    validator: (v) => (v == null || v.trim().isEmpty)
+                        ? 'الرجاء إدخال اسمك'
+                        : null,
                   ),
-                ),
-                const SizedBox(height: 28),
-                const _SectionHeader('التطبيق'),
-                const InstallAppTile(),
-                const SizedBox(height: 28),
-                const _SectionHeader('النسخ الاحتياطي (بدون إنترنت)'),
+                  const SizedBox(height: 16),
+                  Text(
+                    'الحد الأدنى لساعات النوم يوميًا: '
+                    '${_sleepHours.round()} ساعات',
+                    style: MqType.body
+                        .copyWith(color: p.ink, fontWeight: FontWeight.w600),
+                  ),
+                  Slider(
+                    value: _sleepHours,
+                    min: 5,
+                    max: 10,
+                    divisions: 10,
+                    label: '${_sleepHours.round()}',
+                    onChanged: (v) => setState(() => _sleepHours = v),
+                  ),
+                  MqButton(
+                    label: 'حفظ التعديلات',
+                    icon: Icons.save_outlined,
+                    block: true,
+                    onPressed: _saveProfile,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          const MqSectionTitle('التطبيق'),
+          const InstallAppTile(),
+          const SizedBox(height: 20),
+          const MqSectionTitle('النسخ الاحتياطي (بدون إنترنت)'),
+          MqCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
                 Text(
                   'التصدير ينسخ كل بياناتك كنص إلى الحافظة. للاستعادة انسخ '
                   'ذلك النص ثم اضغط «استعادة من الحافظة».',
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                  style: MqType.small.copyWith(color: p.ink2),
                 ),
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
+                const SizedBox(height: 12),
+                MqButton(
+                  label: 'تصدير نسخة احتياطية',
+                  icon: Icons.copy_all_outlined,
+                  kind: MqButtonKind.secondary,
+                  block: true,
                   onPressed: _busy ? null : () => _guard(_export),
-                  icon: const Icon(Icons.copy_all_outlined),
-                  label: const Text('تصدير نسخة احتياطية'),
                 ),
                 const SizedBox(height: 8),
-                OutlinedButton.icon(
+                MqButton(
+                  label: 'استعادة من الحافظة',
+                  icon: Icons.restore,
+                  kind: MqButtonKind.secondary,
+                  block: true,
                   onPressed: _busy ? null : () => _guard(_restore),
-                  icon: const Icon(Icons.restore),
-                  label: const Text('استعادة من الحافظة'),
-                ),
-                const SizedBox(height: 28),
-                const _SectionHeader('منطقة الخطر'),
-                Text(
-                  'إعادة الضبط تحذف ملفك الدراسي وكل المهام والامتحانات '
-                  'والتقدم من هذا الجهاز نهائيًا.',
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-                ),
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  onPressed: _busy ? null : () => _guard(_reset),
-                  icon: const Icon(Icons.delete_forever, color: AppColors.danger),
-                  label: const Text('إعادة ضبط كل البيانات',
-                      style: TextStyle(color: AppColors.danger)),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: AppColors.danger),
-                  ),
                 ),
               ],
             ),
-    );
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader(this.text);
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Text(
-        text,
-        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 20),
+          const MqSectionTitle('منطقة الخطر'),
+          MqCard(
+            color: p.overdueSoft,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'إعادة الضبط تحذف ملفك الدراسي وكل المهام والامتحانات '
+                  'والتقدم من هذا الجهاز نهائيًا.',
+                  style: MqType.small.copyWith(color: p.ink),
+                ),
+                const SizedBox(height: 12),
+                MqButton(
+                  label: 'إعادة ضبط كل البيانات',
+                  icon: Icons.delete_forever,
+                  kind: MqButtonKind.ghost,
+                  block: true,
+                  onPressed: _busy ? null : () => _guard(_reset),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -334,7 +355,7 @@ class _ResetConfirmDialogState extends State<_ResetConfirmDialog> {
           onPressed: canDelete ? () => Navigator.pop(context, true) : null,
           child: Text(
             'حذف نهائي',
-            style: TextStyle(color: canDelete ? AppColors.danger : null),
+            style: TextStyle(color: canDelete ? context.mq.overdue : null),
           ),
         ),
       ],

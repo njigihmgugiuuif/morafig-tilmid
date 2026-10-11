@@ -7,6 +7,7 @@ import '../../database/app_database.dart';
 import '../../engines/error_engine.dart' show ErrorKind;
 import '../../repositories/content_repository.dart';
 import '../../repositories/error_repository.dart';
+import '../design/charts.dart';
 import '../design/motion.dart';
 import '../design/primitives.dart';
 import '../design/progress.dart';
@@ -14,6 +15,8 @@ import '../design/sheet.dart';
 import '../design/states.dart';
 import '../design/tokens.dart';
 import '../state/app_state.dart';
+import '../state/progress_data.dart';
+import '../widgets/unsaved_changes_scope.dart';
 
 class _NodeRow {
   const _NodeRow(this.mastery, this.nodeName, this.subjectName);
@@ -55,7 +58,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: MqSpace.screen),
           child: MqSegmented<int>(
-            options: const {0: 'الإتقان', 1: 'الذاكرة', 2: 'الأخطاء'},
+            options: const {0: 'نظرة', 1: 'الإتقان', 2: 'الذاكرة', 3: 'الأخطاء'},
             selected: _page,
             onChanged: (v) => setState(() => _page = v),
           ),
@@ -65,6 +68,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
           child: MqTabStack(
             index: _page,
             children: [
+              _OverviewPage(app: app, reloadKey: _tick),
               _MasteryPage(app: app, reloadKey: _tick),
               _MemoryPage(app: app, reloadKey: _tick),
               _ErrorsPage(
@@ -211,6 +215,11 @@ Future<void> _showNodeSheet(
             t.studentId.equals(app.studentId!) &
             t.knowledgeNodeId.equals(row.mastery.knowledgeNodeId)))
       .getSingleOrNull();
+  final data = ProgressData(db);
+  final steps = await data.masteryTrajectory(row.mastery.knowledgeNodeId);
+  final reviews = await data.reviewHistory(row.mastery.knowledgeNodeId);
+  final curve =
+      memory == null ? null : data.forgettingCurve(memory, DateTime.now().toUtc());
   if (!context.mounted) return;
   await showMqSheet<void>(
     context,
@@ -249,16 +258,40 @@ Future<void> _showNodeSheet(
           if (m.observationCount != null)
             line('عدد الملاحظات',
                 MqNum('${m.observationCount}', style: MqType.label)),
+          const SizedBox(height: 10),
+          Text('تطوّر إتقانك', style: MqType.h3.copyWith(color: p.ink)),
           const SizedBox(height: 6),
-          if (memory == null)
+          if (steps.length < 2)
+            Text(
+                steps.isEmpty
+                    ? 'لا إجابات مسجَّلة بعد لهذا الموضوع، فلا منحنى لنرسمه.'
+                    : 'يلزم إنجازان على الأقل (بتقييم «فهمت» أو «لم أفهم») ليظهر المنحنى.',
+                style: MqType.caption.copyWith(color: p.ink3))
+          else ...[
+            MqLineChart(
+              semanticLabel: 'منحنى تطوّر الإتقان',
+              points: [
+                for (var i = 0; i < steps.length; i++)
+                  MqPoint(i.toDouble(), steps[i].probability),
+              ],
+              startLabel: 'أول إجابة',
+              endLabel: 'آخر إجابة',
+            ),
+            const SizedBox(height: 4),
+            Text(
+                'كل نقطة هي إجابة سجّلتها، والقيمة هي ما يحسبه محرّك الإتقان بعدها. الصعود يعني أن فهمك يتحسّن.',
+                style: MqType.caption.copyWith(color: p.ink3)),
+          ],
+          const SizedBox(height: 12),
+          if (memory == null || curve == null)
             const MqBanner(
               icon: Icons.layers_outlined,
               tone: MqTone.neutral,
               text: 'لا حالة ذاكرة لهذا الموضوع بعد.',
             )
           else ...[
-            line('الاستدعاء الحالي',
-                MqNum('${(memory.retrievability * 100).round()}%', style: MqType.label)),
+            line('احتمال التذكّر الآن',
+                MqNum('${(curve.recallNow * 100).round()}%', style: MqType.label)),
             line('الثبات (أيام)',
                 MqNum(memory.stability.toStringAsFixed(1), style: MqType.label)),
             if (memory.difficulty != null)
@@ -266,7 +299,34 @@ Future<void> _showNodeSheet(
                   MqNum(memory.difficulty!.toStringAsFixed(1), style: MqType.label)),
             line('المراجعة القادمة',
                 MqNum(date(memory.nextReviewDate), style: MqType.label)),
+            const SizedBox(height: 10),
+            Text('منحنى النسيان', style: MqType.h3.copyWith(color: p.ink)),
+            const SizedBox(height: 6),
+            MqLineChart(
+              semanticLabel: 'منحنى النسيان',
+              points: [for (final r in curve.points) MqPoint(r.day, r.recall)],
+              markers: [
+                MqMarker(curve.daysSinceReview, 'الآن'),
+                if (curve.daysToNextReview > 0)
+                  MqMarker(curve.daysToNextReview, 'المراجعة'),
+              ],
+              threshold: 0.9,
+              thresholdLabel: '٩٠٪',
+              color: p.info,
+              showDots: false,
+              startLabel: 'يوم المراجعة الأخيرة',
+              endLabel: 'بعد ${curve.points.last.day.round()} يومًا',
+            ),
             const SizedBox(height: 4),
+            Text(
+                'يُحسب المنحنى بمحرّك الذاكرة من ثبات ذاكرتك المخزَّن. كلما نزل المنحنى زاد احتمال النسيان، والمراجعة تُعيده للأعلى.',
+                style: MqType.caption.copyWith(color: p.ink3)),
+            if (reviews.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text('عدد المراجعات المسجَّلة: ${reviews.length}',
+                  style: MqType.caption.copyWith(color: p.ink3)),
+            ],
+            const SizedBox(height: 8),
             Text(
                 'خطر النسيان = 1 − الاستدعاء، كما هو مطبَّق الآن. صيغة «النسيان المضخّم» لم تُعتمد بعد.',
                 style: MqType.caption.copyWith(color: p.ink3)),
@@ -543,7 +603,12 @@ class _RecordErrorBodyState extends State<_RecordErrorBody> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => UnsavedChangesScope(
+        isDirty: () => _nodeId != null,
+        child: _form(context),
+      );
+
+  Widget _form(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -576,6 +641,154 @@ class _RecordErrorBodyState extends State<_RecordErrorBody> {
           onPressed: _nodeId == null ? null : _save,
         ),
       ],
+    );
+  }
+}
+
+
+// --------------------------------------------------------------- overview
+
+class _OverviewData {
+  const _OverviewData(this.subjects, this.weeks);
+  final List<SubjectProgress> subjects;
+  final List<WeekCount> weeks;
+}
+
+/// «نظرة»: what was finished and what remains, per subject and per week.
+/// Counts come from the stored tasks and the recorded completion events.
+class _OverviewPage extends StatelessWidget {
+  const _OverviewPage({required this.app, required this.reloadKey});
+  final AppState app;
+  final int reloadKey;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.mq;
+    return MqAsync<_OverviewData>(
+      reloadKey: reloadKey,
+      load: () async {
+        final d = ProgressData(app.db);
+        return _OverviewData(await d.subjectProgress(),
+            await d.weeklyCompletions(DateTime.now().toUtc()));
+      },
+      loading: const Padding(
+          padding: EdgeInsets.all(MqSpace.screen), child: MqLoadingCard(lines: 4)),
+      errorTitle: 'تعذّر عرض التقدم',
+      builder: (context, d) {
+        final done = d.subjects.fold<int>(0, (a, s) => a + s.done);
+        final open = d.subjects.fold<int>(0, (a, s) => a + s.open);
+        if (done + open == 0) {
+          return ListView(
+            padding: const EdgeInsets.all(MqSpace.screen),
+            children: const [
+              MqEmptyState(
+                icon: Icons.insights_outlined,
+                title: 'لا مهام بعد',
+                message: 'أضف مهامك من تبويب «المهام» وستظهر هنا نسبة ما أنجزته وما بقي.',
+              ),
+            ],
+          );
+        }
+        final ratio = done / (done + open);
+        final maxWeek =
+            d.weeks.fold<int>(1, (a, w) => w.count > a ? w.count : a);
+        return ListView(
+          padding:
+              const EdgeInsets.fromLTRB(MqSpace.screen, 4, MqSpace.screen, 28),
+          children: [
+            MqCard(
+              child: Row(children: [
+                MqRing(
+                    value: ratio,
+                    size: 72,
+                    center: MqNum('${(ratio * 100).round()}%',
+                        style: MqType.label, color: p.ink)),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('ما أنجزته من مهامك',
+                          style: MqType.h3.copyWith(color: p.ink)),
+                      Row(children: [
+                        MqNum('$done', style: MqType.body, color: p.ink),
+                        Text(' منجزة · ',
+                            style: MqType.caption.copyWith(color: p.ink3)),
+                        MqNum('$open', style: MqType.body, color: p.ink),
+                        Text(' متبقية',
+                            style: MqType.caption.copyWith(color: p.ink3)),
+                      ]),
+                    ],
+                  ),
+                ),
+              ]),
+            ),
+            const SizedBox(height: 16),
+            MqSectionTitle('حسب المادة'),
+            for (final s in d.subjects)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: MqCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(children: [
+                        Expanded(
+                            child: Text(s.name,
+                                style: MqType.h3.copyWith(color: p.ink))),
+                        MqNum('${s.done}/${s.done + s.open}',
+                            style: MqType.caption, color: p.ink3),
+                      ]),
+                      const SizedBox(height: 8),
+                      MqSegmentBar(segments: [
+                        (s.done.toDouble(), p.brand),
+                        (s.open.toDouble(), p.surface2),
+                      ]),
+                    ],
+                  ),
+                ),
+              ),
+            const SizedBox(height: 8),
+            MqSectionTitle('المنجز في آخر ٨ أسابيع'),
+            MqCard(
+              child: Column(children: [
+                SizedBox(
+                  height: 110,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      for (final w in d.weeks)
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 3),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                MqNum('${w.count}',
+                                    style: MqType.caption, color: p.ink3),
+                                const SizedBox(height: 2),
+                                Container(
+                                  height: 6 + 78 * (w.count / maxWeek),
+                                  decoration: BoxDecoration(
+                                    color: w.count == 0 ? p.surface2 : p.brand,
+                                    borderRadius: BorderRadius.circular(5),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text('كل عمود أسبوع (من الأقدم إلى الأحدث). يُحصى فيه ما سجّلتَ إنجازه.',
+                    style: MqType.caption.copyWith(color: p.ink3)),
+              ]),
+            ),
+          ],
+        );
+      },
     );
   }
 }

@@ -125,6 +125,12 @@ class _TeacherLessonsTabState extends State<TeacherLessonsTab> {
                               } else if (v == 'export') {
                                 await exportLessonPackage(context, i.lesson.id);
                                 widget.onChanged();
+                              } else if (v == 'publishOnline') {
+                                await publishLessonOnline(context, i.lesson.id);
+                                widget.onChanged();
+                              } else if (v == 'unpublishOnline') {
+                                await unpublishLessonOnline(
+                                    context, i.lesson.id);
                               } else if (v == 'delete') {
                                 await _delete(i);
                               }
@@ -136,7 +142,17 @@ class _TeacherLessonsTabState extends State<TeacherLessonsTab> {
                                   LessonStatus.published)
                                 const PopupMenuItem(
                                     value: 'export',
-                                    child: Text('صدّر الحزمة')),
+                                    child: Text('صدّر الملف (نسخة احتياطية)')),
+                              if (LessonStatus.fromDb(i.lesson.status) ==
+                                  LessonStatus.published)
+                                const PopupMenuItem(
+                                    value: 'publishOnline',
+                                    child: Text('انشر للتلاميذ')),
+                              if (LessonStatus.fromDb(i.lesson.status) ==
+                                  LessonStatus.published)
+                                const PopupMenuItem(
+                                    value: 'unpublishOnline',
+                                    child: Text('اسحب من التلاميذ')),
                               const PopupMenuItem(
                                   value: 'delete', child: Text('حذف')),
                             ],

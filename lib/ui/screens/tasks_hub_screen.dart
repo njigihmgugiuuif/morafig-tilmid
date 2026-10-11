@@ -15,6 +15,7 @@ import '../state/app_state.dart';
 import '../state/home_data.dart';
 import '../widgets/priority_views.dart';
 import 'task_detail_screen.dart';
+import '../widgets/unsaved_changes_scope.dart';
 
 /// «المهام» (D-1 DS3): active tasks · completed tasks · the ranked priorities
 /// (which used to be a tab of its own). Rows open the task detail (S14); the
@@ -355,7 +356,12 @@ class _AddTaskBodyState extends State<_AddTaskBody> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => UnsavedChangesScope(
+        isDirty: () => _subject.text.trim().isNotEmpty || _title.text.trim().isNotEmpty,
+        child: _form(context),
+      );
+
+  Widget _form(BuildContext context) {
     final p = context.mq;
     return Form(
       key: _formKey,

@@ -95,6 +95,23 @@ class ContentRepository {
     return node?.name ?? 'محتوى محذوف';
   }
 
+  /// The subject a knowledge node belongs to (node -> lesson -> unit ->
+  /// subject), or null if the chain is broken.
+  Future<String?> subjectIdForNode(String knowledgeNodeId) async {
+    final node = await (_db.select(_db.knowledgeNodes)
+          ..where((t) => t.id.equals(knowledgeNodeId)))
+        .getSingleOrNull();
+    if (node == null) return null;
+    final lesson = await (_db.select(_db.lessons)
+          ..where((t) => t.id.equals(node.lessonId)))
+        .getSingleOrNull();
+    if (lesson == null) return null;
+    final unit = await (_db.select(_db.units)
+          ..where((t) => t.id.equals(lesson.unitId)))
+        .getSingleOrNull();
+    return unit?.subjectId;
+  }
+
   Future<String> subjectNameForNode(String knowledgeNodeId) async {
     final node = await (_db.select(_db.knowledgeNodes)
           ..where((t) => t.id.equals(knowledgeNodeId)))

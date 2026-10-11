@@ -164,12 +164,12 @@ class _TeacherAccountTabState extends State<TeacherAccountTab> {
                   final last = s?.last;
                   return ListTile(
                     leading: const Icon(Icons.upload_file_outlined),
-                    title: const Text('الحزم المصدّرة'),
+                    title: const Text('الملفات المصدَّرة'),
                     subtitle: Text(s == null
                         ? '...'
                         : s.packages == 0
-                            ? 'لم تُصدَّر حزمة بعد'
-                            : '${s.packages} حزم · آخرها '
+                            ? 'لم يُصدَّر ملف بعد'
+                            : '${s.packages} ملفات · آخرها '
                                 '${last == null ? '' : _ago(last)}'),
                   );
                 },
@@ -198,7 +198,7 @@ class _TeacherAccountTabState extends State<TeacherAccountTab> {
           ),
         ),
         const InfoBox(
-          'تحقق الهوية وصلاحيات الخادم: غير متاح في هذه النسخة. قرار مفتوح (O-1).',
+          'تحقق الهوية وصلاحيات الخادم: غير متاح في هذه النسخة. قرار مفتوح.',
           icon: Icons.lock_outline,
         ),
         const SizedBox(height: 16),

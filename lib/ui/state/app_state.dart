@@ -7,6 +7,7 @@ import '../../database/app_database.dart';
 import '../../database/teacher_content_database.dart';
 import '../../repositories/teacher_content_repository.dart';
 import '../../services/planning_service.dart';
+import '../../services/lesson_remote_service.dart';
 import '../../services/teacher_session.dart';
 
 /// App-wide state: holds the single open database connection and the
@@ -16,7 +17,18 @@ import '../../services/teacher_session.dart';
 /// Also tracks first-run / onboarding status. Nothing here touches the
 /// network; SharedPreferences is local device storage only.
 class AppState extends ChangeNotifier {
-  AppState._(this.db, this._studentId);
+  AppState._(this.db, this._studentId, {bool teacherOnly = false})
+      : _teacherOnly = teacherOnly;
+
+  /// State of the SEPARATE teacher panel (`#/teacher`). It has no student and
+  /// never reads the student's database: the teacher repository gets no
+  /// access to it at all (no curriculum linking), and no app-open planning
+  /// runs. The student database object is created lazily and never queried.
+  factory AppState.teacherPortal() =>
+      AppState._(AppDatabase.open(), null, teacherOnly: true);
+
+  final bool _teacherOnly;
+  bool get isTeacherPortal => _teacherOnly;
 
   final AppDatabase db;
   String? _studentId;
@@ -31,7 +43,13 @@ class AppState extends ChangeNotifier {
   late final TeacherContentDatabase teacherDb = TeacherContentDatabase.open();
 
   TeacherContentRepository get teacherRepository =>
-      TeacherContentRepository(teacherDb, mainDb: db);
+      TeacherContentRepository(teacherDb, mainDb: _teacherOnly ? null : db);
+
+  /// Shared lesson storage (Supabase). Disabled until configured.
+  late final LessonRemoteService lessonRemote = LessonRemoteService();
+
+  /// The teachers' password for this visit (memory only).
+  final TeacherRemoteSession teacherRemote = TeacherRemoteSession();
 
   late final TeacherSession teacherSession =
       TeacherSession(SharedPrefsKeyValueStore());

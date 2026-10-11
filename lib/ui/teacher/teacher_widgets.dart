@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../domain/teacher_content_domain.dart';
 import '../../repositories/teacher_content_repository.dart';
-import '../theme/app_theme.dart';
+import '../design/tokens.dart';
 
 /// «أستاذ · غير رسمي»: shown on EVERY piece of teacher content on the
 /// student side (D-2 L01–L04, T09). The text is the domain constant, so it
@@ -14,19 +14,20 @@ class TeacherBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = context.mq;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF1D6),
+        color: p.accentSoft,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.secondary),
+        border: Border.all(color: p.accent),
       ),
-      child: const Text(
+      child: Text(
         kTeacherBadge,
         style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w700,
-          color: Color(0xFF7A4F00),
+          color: p.accentInk,
         ),
       ),
     );
@@ -39,10 +40,11 @@ class LessonStatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = context.mq;
     final (bg, fg) = switch (status) {
-      LessonStatus.draft => (const Color(0xFFE9EEF0), AppColors.textSecondary),
-      LessonStatus.inReview => (const Color(0xFFFFF1D6), const Color(0xFF7A4F00)),
-      LessonStatus.published => (const Color(0xFFDDF3E6), AppColors.success),
+      LessonStatus.draft => (p.surface2, p.ink2),
+      LessonStatus.inReview => (p.accentSoft, p.accentInk),
+      LessonStatus.published => (p.okSoft, p.ok),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -63,21 +65,21 @@ class InfoBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = context.mq;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFEEF3F5),
+        color: p.surface2,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18, color: AppColors.textSecondary),
+          Icon(icon, size: 18, color: p.ink2),
           const SizedBox(width: 8),
           Expanded(
             child: Text(text,
-                style: const TextStyle(
-                    fontSize: 12.5, color: AppColors.textSecondary)),
+                style: TextStyle(fontSize: 12.5, color: p.ink2)),
           ),
         ],
       ),
@@ -145,9 +147,8 @@ class PageImage extends StatelessWidget {
         bytes,
         fit: fit,
         gaplessPlayback: true,
-        errorBuilder: (_, __, ___) => const Center(
-          child: Icon(Icons.broken_image_outlined,
-              color: AppColors.textSecondary),
+        errorBuilder: (ctx, __, ___) => Center(
+          child: Icon(Icons.broken_image_outlined, color: ctx.mq.ink2),
         ),
       ),
     );
@@ -175,12 +176,13 @@ class LessonRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = item.lesson;
     final section = (l.sectionLabel ?? '').trim();
+    final p = context.mq;
     return ListTile(
       onTap: onTap,
       contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-      leading: const CircleAvatar(
-        backgroundColor: Color(0xFFE3EEF2),
-        child: Icon(Icons.menu_book_outlined, color: AppColors.primary),
+      leading: CircleAvatar(
+        backgroundColor: p.brandSoft,
+        child: Icon(Icons.menu_book_outlined, color: p.brand),
       ),
       title: Text(l.title, style: const TextStyle(fontWeight: FontWeight.w700)),
       subtitle: Padding(
@@ -194,11 +196,9 @@ class LessonRow extends StatelessWidget {
             Text('${l.subjectName} · ${internalLevelLabel(l.internalLevel)}',
                 style: const TextStyle(fontSize: 12.5)),
             Text(section.isEmpty ? 'القسم: غير محدد' : 'القسم: $section',
-                style: const TextStyle(
-                    fontSize: 12, color: AppColors.textSecondary)),
+                style: TextStyle(fontSize: 12, color: p.ink2)),
             Text('${item.pageCount} صفحات',
-                style: const TextStyle(
-                    fontSize: 12, color: AppColors.textSecondary)),
+                style: TextStyle(fontSize: 12, color: p.ink2)),
           ],
         ),
       ),

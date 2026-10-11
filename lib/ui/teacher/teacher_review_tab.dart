@@ -220,7 +220,7 @@ class _TeacherReviewTabState extends State<TeacherReviewTab> {
         const SizedBox(height: 8),
         const InfoBox(
           'من يراجع؟ دون خادم لا يوجد مراجع غيرك. تعريف هذه المرحلة غير '
-          'محسوم، قرار مفتوح (O-2).',
+          'محسوم، قرار مفتوح.',
           icon: Icons.help_outline,
         ),
       ],

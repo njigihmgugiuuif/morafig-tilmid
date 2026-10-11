@@ -16,7 +16,6 @@ import '../design/primitives.dart';
 import '../design/states.dart';
 import '../design/tokens.dart';
 import '../state/app_state.dart';
-import '../teacher/teacher_entry_screen.dart';
 import '../widgets/backup_restore_flow.dart';
 
 enum _GoalKind { exam, general, later }
@@ -336,22 +335,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       await restoreBackupFromClipboard(
                           context, context.read<AppState>());
                     },
-                  ),
-                  const SizedBox(height: 6),
-                  Center(
-                    child: TextButton.icon(
-                      style:
-                          TextButton.styleFrom(foregroundColor: Colors.white70),
-                      // A teacher may use this device without being a
-                      // student: the teacher entry is a separate door.
-                      onPressed: () => Navigator.of(context).push<void>(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const TeacherEntryScreen(),
-                        ),
-                      ),
-                      icon: const Icon(Icons.shield_outlined, size: 18),
-                      label: const Text('أنا أستاذ: مدخل الأستاذ'),
-                    ),
                   ),
                   const SizedBox(height: 4),
                   Text('يمكن تثبيته على الشاشة الرئيسية كتطبيق',

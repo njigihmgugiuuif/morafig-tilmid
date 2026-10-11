@@ -8,8 +8,8 @@ import '../../repositories/teacher_content_repository.dart';
 import '../../services/intelligence_service.dart';
 import '../state/app_state.dart';
 import '../teacher/teacher_widgets.dart';
-import '../theme/app_theme.dart';
 import 'node_detail_screen.dart';
+import '../design/tokens.dart';
 
 /// L03 · عارض الدرس. Shows the teacher's page images (zoomable), the
 /// teacher's notes and the lesson's nodes. Back returns to wherever the
@@ -138,8 +138,8 @@ class _LessonViewerScreenState extends State<LessonViewerScreen> {
                 '${l.subjectName} · القسم: '
                 '${(l.sectionLabel ?? '').trim().isEmpty ? 'غير محدد' : l.sectionLabel} · '
                 '${l.teacherName}',
-                style: const TextStyle(
-                    fontSize: 12.5, color: AppColors.textSecondary)),
+                style: TextStyle(
+                    fontSize: 12.5, color: context.mq.ink2)),
           ],
         ),
         const SizedBox(height: 8),
@@ -190,7 +190,7 @@ class _LessonViewerScreenState extends State<LessonViewerScreen> {
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
                         color: i == _current
-                            ? AppColors.primary
+                            ? context.mq.brand
                             : Colors.transparent,
                         width: 2),
                     color: const Color(0xFFE9EEF0),
@@ -258,9 +258,9 @@ class _LessonViewerScreenState extends State<LessonViewerScreen> {
                     Text('• ${a.name} (${formatBytes(a.byteSize)})',
                         style: const TextStyle(fontSize: 13)),
                   const SizedBox(height: 4),
-                  const Text('عرض المرفقات غير مدعوم بعد في هذه النسخة.',
+                  Text('عرض المرفقات غير مدعوم بعد في هذه النسخة.',
                       style: TextStyle(
-                          fontSize: 12, color: AppColors.textSecondary)),
+                          fontSize: 12, color: context.mq.ink2)),
                 ],
               ),
             ),

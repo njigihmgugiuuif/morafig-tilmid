@@ -8,7 +8,7 @@ import '../../domain/teacher_content_domain.dart';
 import '../../platform/device_files.dart';
 import '../../repositories/teacher_content_repository.dart';
 import '../state/app_state.dart';
-import '../theme/app_theme.dart';
+import '../design/tokens.dart';
 import 'teacher_actions.dart';
 import 'teacher_widgets.dart';
 
@@ -186,7 +186,7 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
       showSnack(
           context,
           'اختيار الصور من الجهاز متاح في نسخة الويب/PWA فقط حاليًا. '
-          'حزمة الصور لنسخة الهاتف الأصلية قرار مفتوح (O-4).');
+          'اختيار طريقة حفظ الصور في نسخة الهاتف الأصلية قرار مفتوح.');
       return;
     }
     setState(() => _busy = true);
@@ -395,7 +395,7 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
     if (_busy) return;
     if (!deviceFilesAvailable) {
       showSnack(context,
-          'إرفاق الملفات متاح في نسخة الويب/PWA فقط حاليًا (O-4).');
+          'إرفاق الملفات متاح في نسخة الويب/PWA فقط حاليًا.');
       return;
     }
     setState(() => _busy = true);
@@ -551,8 +551,8 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
                                 margin: const EdgeInsets.symmetric(horizontal: 3),
                                 decoration: BoxDecoration(
                                   color: i <= _step
-                                      ? AppColors.primary
-                                      : const Color(0xFFD8E0E3),
+                                      ? context.mq.brand
+                                      : context.mq.line,
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                               ),
@@ -628,16 +628,16 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
             });
           },
         ),
-        const Padding(
-          padding: EdgeInsets.only(top: 4, bottom: 12),
+        Padding(
+          padding: const EdgeInsets.only(top: 4, bottom: 12),
           child: Text('«2 ثانوي» يحدد الخانة الداخلية 2 فقط.',
-              style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+              style: TextStyle(fontSize: 12, color: context.mq.ink2)),
         ),
         _field('القسم (معلومة وصفية)', _section, hint: 'مثال: 2 علوم تجريبية'),
-        const Padding(
-          padding: EdgeInsets.only(bottom: 12),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
           child: Text('لا يغيّر المستوى ولا منطق الخانات الثلاث.',
-              style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+              style: TextStyle(fontSize: 12, color: context.mq.ink2)),
         ),
         _field('الشعبة / المسار', _track),
         _field('عنوان الدرس', _title),
@@ -672,11 +672,11 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12),
                           color: _level == lv
-                              ? const Color(0xFFDDEBF0)
-                              : const Color(0xFFF0F2F3),
+                              ? context.mq.brandSoft
+                              : context.mq.surface2,
                           border: Border.all(
                               color: _level == lv
-                                  ? AppColors.primary
+                                  ? context.mq.brand
                                   : Colors.transparent,
                               width: 2),
                         ),
@@ -685,8 +685,8 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
                               style: TextStyle(
                                   fontWeight: FontWeight.w700,
                                   color: _level == lv
-                                      ? AppColors.primary
-                                      : AppColors.textSecondary)),
+                                      ? context.mq.brand
+                                      : context.mq.ink2)),
                           Text(_level == lv ? 'فعّالة' : 'مغلقة',
                               style: const TextStyle(fontSize: 12)),
                         ]),
@@ -708,7 +708,7 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
         if (!deviceFilesAvailable)
           const InfoBox(
               'التقاط الصور واختيارها من الهاتف متاح في نسخة الويب/PWA. '
-              'نسخة الهاتف الأصلية تحتاج حزمة صور لم تُعتمد بعد (O-4).',
+              'نسخة الهاتف الأصلية تحتاج طريقة لحفظ الصور لم تُعتمد بعد.',
               icon: Icons.warning_amber_rounded),
         const SizedBox(height: 8),
         Row(children: [
@@ -750,9 +750,9 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                        color: selected ? AppColors.primary : Colors.transparent,
+                        color: selected ? context.mq.brand : Colors.transparent,
                         width: 2),
-                    color: const Color(0xFFE9EEF0),
+                    color: context.mq.surface2,
                   ),
                   clipBehavior: Clip.antiAlias,
                   child: Stack(fit: StackFit.expand, children: [
@@ -817,7 +817,7 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
         const Align(
           alignment: Alignment.centerRight,
           child: Chip(
-              label: Text('الحد الأقصى للصور: يُحدَّد لاحقًا (O-3)',
+              label: Text('الحد الأقصى للصور: يُحدَّد لاحقًا',
                   style: TextStyle(fontSize: 11.5))),
         ),
         _nextButton('التالي: العقد والربط', _next),
@@ -841,9 +841,9 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
                         style: TextStyle(
                             fontSize: 16, fontWeight: FontWeight.w700)),
                   ),
-                  const Text('تُدخلها أنت يدويًا',
+                  Text('تُدخلها أنت يدويًا',
                       style: TextStyle(
-                          fontSize: 12, color: AppColors.textSecondary)),
+                          fontSize: 12, color: context.mq.ink2)),
                 ]),
                 if (_nodes.isEmpty)
                   const Padding(
@@ -1013,8 +1013,8 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
                     '${_subject.text} · القسم: '
                     '${_section.text.trim().isEmpty ? 'غير محدد' : _section.text} · '
                     '${_teacher.text}',
-                    style: const TextStyle(
-                        fontSize: 12.5, color: AppColors.textSecondary)),
+                    style: TextStyle(
+                        fontSize: 12.5, color: context.mq.ink2)),
                 const SizedBox(height: 8),
                 SizedBox(
                   height: 70,
@@ -1111,17 +1111,17 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
               children: [
                 Row(children: [
                   const Expanded(
-                    child: Text('حزمة للتلميذ',
+                    child: Text('ملف للتلميذ',
                         style: TextStyle(
                             fontSize: 16, fontWeight: FontWeight.w700)),
                   ),
                   Chip(label: Text('الإصدار $_savedVersion')),
                 ]),
-                const Text('بصمة الحزمة تُحسب عند التصدير.',
+                const Text('بصمة الملف تُحسب عند التصدير.',
                     style: TextStyle(fontSize: 12.5)),
                 const SizedBox(height: 6),
                 const InfoBox(
-                    'الحزمة وسيلة نقل لهذه النسخة فقط، وليست تصور المنتج '
+                    'الملف وسيلة نقل لهذه النسخة فقط، وليست تصور المنتج '
                     'النهائي. لا تُصدَّر إلا الدروس المنشورة.'),
               ],
             ),
@@ -1131,7 +1131,7 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
         FilledButton.icon(
           onPressed: _busy ? null : _export,
           icon: const Icon(Icons.upload_file),
-          label: const Text('صدّر الحزمة'),
+          label: const Text('صدّر الملف'),
           style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
         ),
         const SizedBox(height: 8),

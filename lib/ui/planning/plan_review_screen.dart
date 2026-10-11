@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../database/app_database.dart';
+import '../../engines/scheduling_engine.dart' show UnscheduledReason;
 import '../../engines/weekly_timeline_engine.dart';
 import '../../repositories/content_repository.dart';
 import '../../services/planning_service.dart';
+import '../design/charts.dart';
 import '../design/page.dart';
 import '../design/primitives.dart';
 import '../design/states.dart';
@@ -26,7 +28,45 @@ Future<Map<String, String>> _namesFor(AppDatabase db, Iterable<String> ids) asyn
   return out;
 }
 
-String _gapLabel(String code) => 'ملاحظة من المخطِّط ($code)';
+String _gapLabel(String code) {
+  switch (code) {
+    case 'conflict_hard_blocks':
+      return 'تعارض بين التزاماتك الثابتة';
+    case 'unplaced_prerequisite':
+      return 'لم تُوضع لأن متطلّبها السابق غير جاهز';
+    case 'unplaced_no_slot':
+      return 'لم نجد لها وقتًا يتّسع';
+    case 'unplaced_partial':
+      return 'وُضع جزء منها فقط';
+    case 'insufficient_time':
+      return 'الوقت المتاح لا يكفي المطلوب';
+    case 'backlog':
+      return 'مهام متراكمة';
+    case 'unused_while_backlog':
+      return 'وقت فارغ بينما توجد مهام متراكمة';
+    case 'overload_over_limit':
+      return 'عبء فوق الحد المسموح';
+    case 'overload_near_capacity':
+      return 'عبء قريب من الحد';
+    case 'free_slot':
+      return 'وقت فارغ غير مستغل';
+    case 'placed_after_deadline':
+      return 'وُضعت بعد موعدها النهائي';
+    default:
+      return 'ملاحظة من المخطِّط';
+  }
+}
+
+String _reasonLabel(UnscheduledReason r) {
+  switch (r) {
+    case UnscheduledReason.noSlotAvailable:
+      return 'لا يوجد وقت يتّسع لها';
+    case UnscheduledReason.partiallyScheduled:
+      return 'وُضع جزء من وقتها فقط';
+    case UnscheduledReason.prerequisiteNotSatisfied:
+      return 'متطلّبها السابق غير جاهز بعد';
+  }
+}
 
 /// «مراجعة إعادة التخطيط» (S19) + «المخطَّط والفعلي» (P04) + الفجوات (P05).
 /// Replanning is requested by the student; the screen shows what the planner
@@ -142,7 +182,19 @@ class _PlanReviewScreenState extends State<PlanReviewScreen> {
           if (r.changes.isEmpty)
             Text('لم يتغيّر شيء عن الخطة السابقة.',
                 style: MqType.body.copyWith(color: p.ink2))
-          else
+          else ...[
+            MqCard(
+              child: MqPairedBars(
+                rows: [
+                  for (final c in r.changes)
+                    MqPairRow(_names[c.taskId] ?? 'مهمة',
+                        c.minutesBefore.toDouble(), c.minutesAfter.toDouble()),
+                ],
+                firstLabel: 'قبل',
+                secondLabel: 'بعد',
+              ),
+            ),
+            const SizedBox(height: 8),
             for (final c in r.changes)
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
@@ -168,6 +220,7 @@ class _PlanReviewScreenState extends State<PlanReviewScreen> {
                   ]),
                 ),
               ),
+          ],
           if (r.unscheduled.isNotEmpty) ...[
             const SizedBox(height: 12),
             MqSectionTitle('لم تأخذ وقتها الكامل'),
@@ -180,7 +233,7 @@ class _PlanReviewScreenState extends State<PlanReviewScreen> {
                     children: [
                       Text(_names[u.taskId] ?? 'مهمة',
                           style: MqType.h3.copyWith(color: p.ink)),
-                      Text('السبب: ${u.reason.name}',
+                      Text('السبب: ${_reasonLabel(u.reason)}',
                           style: MqType.caption.copyWith(color: p.ink3)),
                     ],
                   ),
@@ -230,6 +283,19 @@ class _PlanReviewScreenState extends State<PlanReviewScreen> {
               builder: (context, snap) {
                 final n = snap.data ?? const <String, String>{};
                 return Column(children: [
+                  MqCard(
+                    child: MqPairedBars(
+                      rows: [
+                        for (final x in rows)
+                          MqPairRow(n[x.taskId] ?? 'مهمة',
+                              x.plannedMinutes.toDouble(),
+                              x.actualMinutes.toDouble()),
+                      ],
+                      firstLabel: 'المخطَّط',
+                      secondLabel: 'الفعلي',
+                    ),
+                  ),
+                  const SizedBox(height: 10),
                   for (final x in rows)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8),
@@ -263,6 +329,52 @@ class _PlanReviewScreenState extends State<PlanReviewScreen> {
                 ]);
               },
             );
+          },
+        ),
+        const SizedBox(height: 20),
+        MqSectionTitle('كم تحتاج فعلًا؟'),
+        MqAsync<List<(String, TimeEstimate)>>(
+          reloadKey: _reload,
+          load: () async {
+            final rows = await app.db.select(app.db.timeEstimates).get();
+            final out = <(String, TimeEstimate)>[];
+            for (final e in rows) {
+              final sub = await (app.db.select(app.db.subjects)
+                    ..where((t) => t.id.equals(e.subjectId)))
+                  .getSingleOrNull();
+              out.add((sub?.name ?? 'مادة', e));
+            }
+            return out;
+          },
+          errorTitle: 'تعذّر عرض التقديرات',
+          builder: (context, rows) {
+            if (rows.isEmpty) {
+              return Text(
+                  'حين تسجّل ما درسته فعلًا (من «اليوم») نتعلّم كم تحتاج لكل مادة ونعرضه هنا.',
+                  style: MqType.caption.copyWith(color: p.ink3));
+            }
+            String conf(String c) =>
+                c == 'high' ? 'ثقة عالية' : c == 'medium' ? 'ثقة متوسطة' : 'ثقة منخفضة';
+            return Column(children: [
+              for (final r in rows)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: MqCard(
+                    child: Row(children: [
+                      Expanded(
+                          child: Text(r.$1,
+                              style: MqType.h3.copyWith(color: p.ink))),
+                      MqNum('${r.$2.estimatedDurationMinutes} د',
+                          style: MqType.label, color: p.ink),
+                      const SizedBox(width: 8),
+                      MqChip(label: conf(r.$2.confidenceLevel)),
+                    ]),
+                  ),
+                ),
+              Text(
+                  'هذا ما تعلّمه التطبيق من جلساتك الفعلية. لا يغيّر خطتك وحده؛ يبقى وقت كل مهمة كما أدخلتَه.',
+                  style: MqType.caption.copyWith(color: p.ink3)),
+            ]);
           },
         ),
       ],

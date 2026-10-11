@@ -4,7 +4,6 @@ import '../design/page.dart';
 import '../design/primitives.dart';
 import '../design/tokens.dart';
 import '../library/library_screen.dart';
-import '../teacher/teacher_entry_screen.dart';
 import '../goals/goals_screen.dart';
 import '../planning/energy_focus_screen.dart';
 import '../planning/plan_calendar_screen.dart';
@@ -89,21 +88,14 @@ class MoreScreen extends StatelessWidget {
           icon: Icons.menu_book_outlined,
           tone: MqTone.brand,
           title: 'مكتبة الدروس',
-          subtitle: 'دروس أساتذتك المستوردة',
+          subtitle: 'دروس أساتذتك، تُحدَّث من الإنترنت',
           onTap: () => open(const LibraryScreen()),
-        ),
-        _Entry(
-          icon: Icons.shield_outlined,
-          tone: MqTone.info,
-          title: 'مدخل الأستاذ',
-          subtitle: 'كتابة الدروس وتصدير الحزم',
-          onTap: () => open(const TeacherEntryScreen()),
         ),
         _Entry(
           icon: Icons.settings_outlined,
           tone: MqTone.neutral,
           title: 'الإعدادات',
-          subtitle: 'المظهر والنسخ الاحتياطي',
+          subtitle: 'الملف الشخصي، تثبيت التطبيق، النسخ الاحتياطي',
           onTap: () => open(const SettingsScreen()),
         ),
       ],

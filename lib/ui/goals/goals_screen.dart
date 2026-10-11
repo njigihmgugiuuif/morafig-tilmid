@@ -10,6 +10,7 @@ import '../design/sheet.dart';
 import '../design/states.dart';
 import '../design/tokens.dart';
 import '../state/app_state.dart';
+import '../widgets/unsaved_changes_scope.dart';
 
 /// «أهدافي» (D-2 Q04): the goals the student typed in. They are recorded and
 /// shown, and they do not change the priority yet: the definition of
@@ -184,7 +185,12 @@ class _AddGoalBodyState extends State<_AddGoalBody> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => UnsavedChangesScope(
+        isDirty: () => _title.text.trim().isNotEmpty || _subject.text.trim().isNotEmpty || _date != null,
+        child: _form(context),
+      );
+
+  Widget _form(BuildContext context) {
     final p = context.mq;
     return Column(
       mainAxisSize: MainAxisSize.min,

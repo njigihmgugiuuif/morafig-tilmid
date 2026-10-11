@@ -1,16 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../services/lesson_remote_service.dart';
 import '../../services/teacher_session.dart';
+import '../design/page.dart';
+import '../design/primitives.dart';
+import '../design/states.dart';
 import '../state/app_state.dart';
-import '../theme/app_theme.dart';
-import '../widgets/debounced_button.dart';
+import '../design/tokens.dart';
 import 'teacher_shell.dart';
 import 'teacher_widgets.dart';
 
-/// T01 · مدخل الأستاذ. A separate entry, reached from «المزيد» (student) or
-/// from the first-run screen. It does NOT verify identity (no server): the
-/// name is a label and the PIN is a convenience lock on this device (O-1).
+/// T01 · مدخل الأستاذ: the door of the SEPARATE teacher panel (`#/teacher`).
+/// When the shared server is configured, entry needs the teachers' shared
+/// password, verified ON THE SERVER. When it is not configured, the old local
+/// mode remains (name + optional PIN lock on this device) and the screen says
+/// plainly that it is not protection (O-1).
 class TeacherEntryScreen extends StatefulWidget {
   const TeacherEntryScreen({super.key});
 
@@ -35,6 +40,7 @@ class _TeacherEntryScreenState extends State<TeacherEntryScreen> {
   void dispose() {
     _name.dispose();
     _pin.dispose();
+    _password.dispose();
     _newPin.dispose();
     super.dispose();
   }
@@ -49,6 +55,43 @@ class _TeacherEntryScreenState extends State<TeacherEntryScreen> {
       _hasPin = hasPin;
       _loaded = true;
     });
+  }
+
+  final _password = TextEditingController();
+  bool _busy = false;
+
+  Future<void> _enterOnline() async {
+    final state = context.read<AppState>();
+    if (_name.text.trim().isEmpty) {
+      showSnack(context, 'اكتب اسمك كما سيظهر على دروسك.');
+      return;
+    }
+    if (_password.text.isEmpty) {
+      showSnack(context, 'أدخل كلمة مرور الأساتذة.');
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      final ok = await state.lessonRemote.verifyPassword(_password.text);
+      if (!mounted) return;
+      if (!ok) {
+        showSnack(context, 'كلمة مرور الأساتذة غير صحيحة.');
+        return;
+      }
+      await state.teacherSession.rename(_name.text);
+      state.teacherRemote.signIn(_password.text);
+      _password.clear();
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => const TeacherShell()),
+      );
+      // Leaving the panel signs out: the password is not kept.
+      state.teacherRemote.signOut();
+      if (mounted) _load();
+    } on RemoteException catch (e) {
+      if (mounted) showSnack(context, e.message);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _enter() async {
@@ -83,103 +126,98 @@ class _TeacherEntryScreenState extends State<TeacherEntryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('مدخل الأستاذ')),
-      body: SafeArea(
-        child: !_loaded
-            ? const Center(child: CircularProgressIndicator())
-            : ListView(
-                padding: const EdgeInsets.all(20),
-                children: [
-                  const SizedBox(height: 8),
-                  const Center(
-                    child: Text('ثانوية رابح بطاط',
-                        style: TextStyle(color: AppColors.textSecondary)),
-                  ),
-                  const SizedBox(height: 6),
-                  const Center(
-                    child: Text('مرافق التلميذ',
-                        style: TextStyle(
-                            fontSize: 26, fontWeight: FontWeight.w800)),
-                  ),
-                  const SizedBox(height: 4),
-                  const Center(
-                    child: Text('المرافقة والتنظيم الدراسي طوال العام',
-                        style: TextStyle(
-                            fontSize: 13, color: AppColors.textSecondary)),
-                  ),
-                  const SizedBox(height: 24),
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          const Text('دخول الأستاذ',
-                              style: TextStyle(
-                                  fontSize: 17, fontWeight: FontWeight.w700)),
-                          const SizedBox(height: 12),
-                          TextField(
-                            controller: _name,
-                            textAlign: TextAlign.right,
-                            decoration: const InputDecoration(
-                              labelText: 'اسمك كما سيظهر على دروسك',
-                              prefixIcon: Icon(Icons.person_outline),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          if (_hasPin)
-                            TextField(
-                              controller: _pin,
-                              obscureText: true,
-                              keyboardType: TextInputType.number,
-                              textAlign: TextAlign.right,
-                              decoration: const InputDecoration(
-                                labelText: 'رمز PIN',
-                                prefixIcon: Icon(Icons.lock_outline),
-                              ),
-                            )
-                          else
-                            TextField(
-                              controller: _newPin,
-                              obscureText: true,
-                              keyboardType: TextInputType.number,
-                              textAlign: TextAlign.right,
-                              decoration: const InputDecoration(
-                                labelText: 'رمز PIN (اختياري)',
-                                prefixIcon: Icon(Icons.lock_outline),
-                              ),
-                            ),
-                          const SizedBox(height: 16),
-                          DebouncedButton(
-                            label: 'ادخل وضع الأستاذ',
-                            icon: Icons.shield_outlined,
-                            onPressed: _enter,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  const InfoBox(
-                    'في هذه النسخة لا يوجد خادم، فلا نستطيع التحقق من هويتك. '
-                    'الرمز راحة على هذا الجهاز وليس حماية.',
-                    icon: Icons.warning_amber_rounded,
-                  ),
-                  const SizedBox(height: 8),
-                  const InfoBox(
-                    'حساب أستاذ محمي بتحقق الهوية: غير متاح في هذه النسخة. '
-                    'قرار مفتوح (O-1).',
-                    icon: Icons.lock_outline,
-                  ),
-                  const SizedBox(height: 16),
-                  OutlinedButton(
-                    onPressed: () => Navigator.of(context).maybePop(),
-                    child: const Text('العودة'),
-                  ),
-                ],
+    final p = context.mq;
+    final online = context.read<AppState>().lessonRemote.configured;
+    if (!_loaded) {
+      return const MqPage(title: 'مدخل الأستاذ', children: [MqLoadingCard(lines: 3)]);
+    }
+    return MqPage(
+      title: 'مدخل الأستاذ',
+      children: [
+        Center(
+          child: Text('ثانوية رابح بطاط',
+              style: MqType.small.copyWith(color: p.ink2)),
+        ),
+        const SizedBox(height: 4),
+        Center(
+          child: Text('مرافق التلميذ',
+              style: MqType.h1.copyWith(color: p.ink)),
+        ),
+        const SizedBox(height: 2),
+        Center(
+          child: Text('المرافقة والتنظيم الدراسي طوال العام',
+              style: MqType.caption.copyWith(color: p.ink2)),
+        ),
+        const SizedBox(height: 20),
+        MqCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('دخول الأستاذ', style: MqType.h3.copyWith(color: p.ink)),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _name,
+                decoration: const InputDecoration(
+                  labelText: 'اسمك كما سيظهر على دروسك',
+                  prefixIcon: Icon(Icons.person_outline),
+                ),
               ),
-      ),
+              const SizedBox(height: 12),
+              if (online)
+                TextField(
+                  controller: _password,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: 'كلمة مرور الأساتذة',
+                    prefixIcon: Icon(Icons.key_outlined),
+                  ),
+                  onSubmitted: (_) => _busy ? null : _enterOnline(),
+                )
+              else if (_hasPin)
+                TextField(
+                  controller: _pin,
+                  obscureText: true,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'رمز PIN',
+                    prefixIcon: Icon(Icons.lock_outline),
+                  ),
+                )
+              else
+                TextField(
+                  controller: _newPin,
+                  obscureText: true,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'رمز PIN (اختياري)',
+                    prefixIcon: Icon(Icons.lock_outline),
+                  ),
+                ),
+              const SizedBox(height: 16),
+              MqButton(
+                label: _busy ? 'جارٍ التحقق…' : 'ادخل وضع الأستاذ',
+                icon: Icons.shield_outlined,
+                block: true,
+                onPressed: _busy ? null : (online ? _enterOnline : _enter),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        if (online)
+          const InfoBox(
+            'كلمة المرور تُتحقَّق على الخادم، ولا يُنشر درس للتلاميذ '
+            'إلا بها. تحتاج إلى اتصال بالإنترنت للدخول.',
+            icon: Icons.verified_user_outlined,
+          )
+        else ...const [
+          InfoBox(
+            'المزامنة مع التلاميذ غير مفعّلة بعد في هذه النسخة. يمكنك كتابة '
+            'الدروس وتصديرها كملف. الرمز راحة على هذا الجهاز وليس حماية.',
+            icon: Icons.warning_amber_rounded,
+          ),
+        ],
+      ],
     );
   }
 }

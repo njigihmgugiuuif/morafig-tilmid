@@ -10,9 +10,9 @@ import '../../repositories/teacher_content_repository.dart';
 import '../../services/teacher_package_service.dart';
 import '../state/app_state.dart';
 import '../teacher/teacher_widgets.dart';
-import '../theme/app_theme.dart';
+import '../design/tokens.dart';
 
-/// L02 · استيراد حزمة. Reads a teacher package from a file (web) or from the
+/// L02 · استيراد ملف دروس. Reads a teacher package from a file (web) or from the
 /// clipboard, SHOWS what it would do (new / duplicate / newer version / older
 /// version / conflict / corrupt) and writes only after the student confirms.
 /// It adds lesson content only: tasks, mastery, memory and plans are never
@@ -123,7 +123,7 @@ class _ImportScreenState extends State<ImportScreen> {
     final preview = _preview;
     final c = preview?.content;
     return Scaffold(
-      appBar: AppBar(title: const Text('استيراد حزمة')),
+      appBar: AppBar(title: const Text('استيراد ملف دروس')),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -133,7 +133,7 @@ class _ImportScreenState extends State<ImportScreen> {
                 child: FilledButton.icon(
                   onPressed: _busy ? null : _pickFile,
                   icon: const Icon(Icons.folder_open),
-                  label: const Text('اختر ملف حزمة'),
+                  label: const Text('اختر ملف الدروس'),
                 ),
               ),
               const SizedBox(width: 8),
@@ -173,9 +173,9 @@ class _ImportScreenState extends State<ImportScreen> {
                             '${c.pages.length} صفحات · ${formatBytes(c.totalBytes)}',
                             style: const TextStyle(fontSize: 12.5)),
                         Text('المرسل: ${c.teacherName} (تسمية غير موثّقة)',
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontSize: 12.5,
-                                color: AppColors.textSecondary)),
+                                color: context.mq.ink2)),
                       ],
                     ),
                   ),
@@ -209,7 +209,7 @@ class _ImportScreenState extends State<ImportScreen> {
                             fontSize: 16, fontWeight: FontWeight.w700)),
                     SizedBox(height: 6),
                     Text('• يضيف محتوى فقط ولا يمسّ مهامك أو إتقانك أو ذاكرتك.'),
-                    Text('• لا تُضاف الحزمة مرتين: البصمة نفسها تُرفض كمكررة.'),
+                    Text('• لا يُضاف الملف مرتين: البصمة نفسها تُرفض كمكررة.'),
                     Text('• المحتوى غير رسمي: لا يغيّر المنهج ولا المعاملات.'),
                     Text('• البصمة تكشف التلف وليست إثباتًا لهوية المرسل.'),
                   ],

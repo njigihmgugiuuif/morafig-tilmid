@@ -450,7 +450,8 @@ class _WorkloadCard extends StatelessWidget {
           };
     return MqCard(
       kind: MqCardKind.soft,
-      child: Row(
+      child: Column(children: [
+        Row(
         children: [
           MqIconTile(icon: Icons.speed_rounded, tone: tone),
           const SizedBox(width: 12),
@@ -470,6 +471,20 @@ class _WorkloadCard extends StatelessWidget {
           ),
         ],
       ),
+        if (!noTime) ...[
+          const SizedBox(height: 12),
+          MqPairedBars(
+            rows: [
+              MqPairRow(
+                  'العمل مقابل الوقت',
+                  state.totalEstimatedTimeNeededMinutes.toDouble(),
+                  state.totalAvailableTimeMinutes.toDouble()),
+            ],
+            firstLabel: 'المطلوب',
+            secondLabel: 'المتاح',
+          ),
+        ],
+      ]),
     );
   }
 }

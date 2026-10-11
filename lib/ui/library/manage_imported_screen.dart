@@ -5,9 +5,9 @@ import '../../domain/teacher_content_domain.dart';
 import '../../repositories/teacher_content_repository.dart';
 import '../state/app_state.dart';
 import '../teacher/teacher_widgets.dart';
-import '../theme/app_theme.dart';
 import '../widgets/async_section.dart';
 import 'import_screen.dart';
+import '../design/tokens.dart';
 
 /// L05 · إدارة المحتوى المستورد: size used, update, delete. Deleting removes
 /// the lesson's content only; tasks, mastery and memory are not touched. The
@@ -25,7 +25,7 @@ class _ManageImportedScreenState extends State<ManageImportedScreen> {
       context,
       title: 'تأكيد الحذف',
       message: 'سيُحذف «${item.lesson.title}» من جهازك. يمكنك استيراده مرة '
-          'أخرى متى توفّرت الحزمة. مهامك وإتقانك وذاكرتك لا تتأثر.',
+          'أخرى متى توفّر الملف. مهامك وإتقانك وذاكرتك لا تتأثر.',
       confirmLabel: 'احذف',
     );
     if (!ok || !mounted) return;
@@ -69,7 +69,7 @@ class _ManageImportedScreenState extends State<ManageImportedScreen> {
                         leading: const Icon(Icons.storage_outlined),
                         title: Text('المساحة المستعملة ${formatBytes(used)}'),
                         subtitle: const Text(
-                            'الحد الأقصى غير محدد بعد. قرار مفتوح (O-3).'),
+                            'الحد الأقصى غير محدد بعد. قرار مفتوح.'),
                       ),
                     ),
                     Card(
@@ -94,9 +94,9 @@ class _ManageImportedScreenState extends State<ManageImportedScreen> {
                                         child: const Text('حدّث')),
                                     TextButton(
                                         onPressed: () => _delete(i),
-                                        child: const Text('احذف',
+                                        child: Text('احذف',
                                             style: TextStyle(
-                                                color: AppColors.danger))),
+                                                color: context.mq.overdue))),
                                   ],
                                 ),
                               ),
@@ -109,7 +109,7 @@ class _ManageImportedScreenState extends State<ManageImportedScreen> {
               },
             ),
             const InfoBox(
-                'حذف حزمة يزيل محتواها فقط. مهامك وإتقانك وذاكرتك لا تتأثر.'),
+                'حذف ملف دروس يزيل محتواها فقط. مهامك وإتقانك وذاكرتك لا تتأثر.'),
           ],
         ),
       ),

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_theme.dart';
+import '../design/tokens.dart';
 import 'lesson_wizard_screen.dart';
 import 'teacher_account_tab.dart';
 import 'teacher_dashboard_tab.dart';
@@ -93,7 +93,7 @@ class _TeacherShellState extends State<TeacherShell> {
         bottomNavigationBar: NavigationBar(
           selectedIndex: _index,
           backgroundColor: Theme.of(context).colorScheme.surface,
-          indicatorColor: AppColors.primary.withOpacity(0.12),
+          indicatorColor: context.mq.brandSoft,
           onDestinationSelected: (i) => setState(() => _index = i),
           destinations: const [
             NavigationDestination(

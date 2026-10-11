@@ -5,7 +5,7 @@ import '../../database/teacher_content_database.dart' show TeacherLessonNode;
 import '../../repositories/teacher_content_repository.dart';
 import '../state/app_state.dart';
 import '../teacher/teacher_widgets.dart';
-import '../theme/app_theme.dart';
+import '../design/tokens.dart';
 
 /// L04 · تفاصيل العقدة (a node typed by the teacher inside a lesson).
 ///
@@ -44,8 +44,8 @@ class NodeDetailScreen extends StatelessWidget {
                               child: TeacherBadge()),
                           const SizedBox(height: 8),
                           Text(agg.lesson.subjectName,
-                              style: const TextStyle(
-                                  color: AppColors.textSecondary)),
+                              style: TextStyle(
+                                  color: context.mq.ink2)),
                           Text(agg.lesson.title,
                               style: const TextStyle(
                                   fontSize: 16, fontWeight: FontWeight.w700)),
@@ -122,7 +122,7 @@ class NodeDetailScreen extends StatelessWidget {
                           const InfoBox(
                             'الإتقان والمراجعة القادمة والأخطاء لا تظهر هنا: '
                             'عقدة الأستاذ غير مربوطة بعقد مادتك، وربط مواد '
-                            'الأستاذ بمواد التلميذ قرار مفتوح (O-17). '
+                            'الأستاذ بمواد التلميذ قرار مفتوح. '
                             'لا نعرض أرقامًا غير حقيقية.',
                             icon: Icons.info_outline,
                           ),

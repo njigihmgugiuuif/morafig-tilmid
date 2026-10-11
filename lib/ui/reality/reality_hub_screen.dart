@@ -14,6 +14,7 @@ import '../design/sheet.dart';
 import '../design/states.dart';
 import '../design/tokens.dart';
 import '../state/app_state.dart';
+import '../widgets/unsaved_changes_scope.dart';
 
 String _fmtMin(int m) {
   final mm = m % 1440;
@@ -116,7 +117,7 @@ class _RealityHubScreenState extends State<RealityHubScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                  '${_dayName(e.dayOfWeek)} · ${e.label ?? _kindLabels[TimelineBlockKind.values.byName(e.kind)] ?? e.kind}',
+                                  '${_dayName(e.dayOfWeek)} · ${e.label ?? _kindLabels[TimelineBlockKind.values.asNameMap()[e.kind]] ?? e.kind}',
                                   style: MqType.h3.copyWith(color: p.ink)),
                               MqNum(
                                   '${_fmtMin(e.startMinutes)} – ${_fmtMin(e.endMinutes)}',
@@ -431,7 +432,12 @@ class _BlockFormState extends State<_BlockForm> {
   }
 
   @override
-  Widget build(BuildContext context) => Column(
+  Widget build(BuildContext context) => UnsavedChangesScope(
+        isDirty: () => label.text.trim().isNotEmpty || day != 0 || start != 8 * 60 || end != 12 * 60 || kind != TimelineBlockKind.school,
+        child: _form(context),
+      );
+
+  Widget _form(BuildContext context) => Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -500,7 +506,12 @@ class _FreeFormState extends State<_FreeForm> {
   }
 
   @override
-  Widget build(BuildContext context) => Column(
+  Widget build(BuildContext context) => UnsavedChangesScope(
+        isDirty: () => day != 0 || start != 17 * 60 || end != 19 * 60 || !recurring,
+        child: _form(context),
+      );
+
+  Widget _form(BuildContext context) => Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -569,7 +580,12 @@ class _UrgentFormState extends State<_UrgentForm> {
   }
 
   @override
-  Widget build(BuildContext context) => Column(
+  Widget build(BuildContext context) => UnsavedChangesScope(
+        isDirty: () => to.difference(from).inDays != 1 || from.day != DateTime.now().day,
+        child: _form(context),
+      );
+
+  Widget _form(BuildContext context) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           MqButton(
@@ -636,7 +652,12 @@ class _CalFormState extends State<_CalForm> {
   }
 
   @override
-  Widget build(BuildContext context) => Column(
+  Widget build(BuildContext context) => UnsavedChangesScope(
+        isDirty: () => name.text.trim().isNotEmpty,
+        child: _form(context),
+      );
+
+  Widget _form(BuildContext context) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           TextField(
