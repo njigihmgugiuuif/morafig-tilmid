@@ -1889,6 +1889,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 coverage
 dart_style
 glob
+http
 http_parser
 matcher
 path
