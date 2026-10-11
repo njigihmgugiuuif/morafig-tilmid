@@ -113,15 +113,19 @@ void main() {
     await studentDb.close();
   });
 
+  var keySeq = 0;
+
   Future<String> publishedLesson(int level,
       {String title = 'الدوال الأسية'}) async {
+    // Node keys become row ids: they must be unique across lessons.
+    final nodeKey = 'node-${keySeq++}';
     final id = await teacherRepo.saveLesson(LessonInput(
       title: title,
       subjectName: 'الرياضيات',
       internalLevel: level,
       teacherName: 'أ. سمير',
       pages: [PageInput(bytes: jpeg(10)), PageInput(bytes: jpeg(20, 7))],
-      nodes: const [NodeDraft(key: 'n1', name: 'تعريف', pageFrom: 1, pageTo: 2)],
+      nodes: [NodeDraft(key: nodeKey, name: 'تعريف', pageFrom: 1, pageTo: 2)],
     ));
     await teacherRepo.transition(id, LessonStatus.inReview);
     await teacherRepo.transition(id, LessonStatus.published);
@@ -225,7 +229,7 @@ void main() {
       internalLevel: 1,
       teacherName: 'أ. سمير',
       pages: [PageInput(bytes: jpeg(5))],
-      nodes: const [NodeDraft(key: 'n1', name: 'تعريف', pageFrom: 1, pageTo: 1)],
+      nodes: [NodeDraft(key: 'node-v2-${keySeq++}', name: 'تعريف', pageFrom: 1, pageTo: 1)],
     ));
     await teacherRepo.transition(id, LessonStatus.inReview);
     await teacherRepo.transition(id, LessonStatus.published);

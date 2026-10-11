@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../database/app_database.dart';
+import '../design/charts.dart';
 import '../design/logo.dart';
 import '../design/motion.dart';
 import '../design/primitives.dart';
