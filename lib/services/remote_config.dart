@@ -10,5 +10,6 @@
 /// While both are empty the app works exactly as before (local lessons, manual
 /// export/import) and says plainly that online sync is not enabled yet.
 /// See SUPABASE_SETUP_AR.md for the 10-minute setup.
-const String kSupabaseUrl = '';
-const String kSupabaseAnonKey = '';
+const String kSupabaseUrl = 'https://avrxprjaeveboahhjofn.supabase.co';
+const String kSupabaseAnonKey =
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2cnhwcmphZXZlYm9haGhqb2ZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE3MjYyMjYsImV4cCI6MjEwNzMwMjIyNn0.P-N-jdXtnoYfAHOdgj_CMU8-t-0TUZuHm9lFrLTjufQ';
