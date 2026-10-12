@@ -186,7 +186,7 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
       showSnack(
           context,
           'اختيار الصور من الجهاز متاح في نسخة المتصفح فقط حاليًا. '
-          'اختيار طريقة حفظ الصور في نسخة الهاتف الأصلية قرار مفتوح.');
+          'استعمل المتصفح لاختيار الصور.');
       return;
     }
     setState(() => _busy = true);
@@ -270,7 +270,7 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => AlertDialog(
-          title: Text(existing == null ? 'أضف عقدة' : 'عدّل العقدة'),
+          title: Text(existing == null ? 'أضف محورًا' : 'عدّل المحور'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -278,7 +278,7 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
                 TextField(
                   controller: name,
                   textAlign: TextAlign.right,
-                  decoration: const InputDecoration(labelText: 'اسم العقدة'),
+                  decoration: const InputDecoration(labelText: 'اسم المحور'),
                 ),
                 const SizedBox(height: 8),
                 Row(children: [
@@ -303,7 +303,7 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String?>(
                   value: requires,
-                  decoration: const InputDecoration(labelText: 'يتطلب'),
+                  decoration: const InputDecoration(labelText: 'يسبقه'),
                   items: [
                     const DropdownMenuItem<String?>(
                         value: null, child: Text('لا شيء')),
@@ -509,7 +509,7 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
     const titles = [
       'درس جديد',
       'صفحات الدرس',
-      'العقد والربط',
+      'محاور الدرس',
       'المعاينة والنشر',
     ];
     return PopScope(
@@ -630,13 +630,13 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
         ),
         Padding(
           padding: const EdgeInsets.only(top: 4, bottom: 12),
-          child: Text('«2 ثانوي» يحدد الخانة الداخلية 2 فقط.',
+          child: Text('اختيارك هنا يحدد لأي تلاميذ يصل الدرس.',
               style: TextStyle(fontSize: 12, color: context.mq.ink2)),
         ),
-        _field('القسم (معلومة وصفية)', _section, hint: 'مثال: 2 علوم تجريبية'),
+        _field('القسم (للتوضيح فقط)', _section, hint: 'مثال: 2 علوم تجريبية'),
         Padding(
           padding: const EdgeInsets.only(bottom: 12),
-          child: Text('لا يغيّر المستوى ولا منطق الخانات الثلاث.',
+          child: Text('لا يغيّر المستوى الذي اخترته.',
               style: TextStyle(fontSize: 12, color: context.mq.ink2)),
         ),
         _field('الشعبة / المسار', _track),
@@ -660,7 +660,7 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('الخانة الداخلية للدرس',
+                const Text('لمن هذا الدرس؟',
                     style: TextStyle(fontWeight: FontWeight.w700)),
                 const SizedBox(height: 8),
                 Row(children: [
@@ -687,7 +687,7 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
                                   color: _level == lv
                                       ? context.mq.brand
                                       : context.mq.ink2)),
-                          Text(_level == lv ? 'فعّالة' : 'مغلقة',
+                          Text(_level == lv ? 'مختار' : 'غير مختار',
                               style: const TextStyle(fontSize: 12)),
                         ]),
                       ),
@@ -697,8 +697,8 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
                 Text(
                     _level == null
                         ? 'اختر المستوى في الخطوة الأولى.'
-                        : 'الصور تذهب إلى خانة ${internalLevelLabel(_level!)} '
-                            'فقط، ولا تظهر في الخانتين الأخريين.',
+                        : 'الصور تذهب إلى ${internalLevelLabel(_level!)} '
+                            'فقط، ولا تظهر لتلاميذ المستويين الآخرين.',
                     style: const TextStyle(fontSize: 12.5)),
               ],
             ),
@@ -708,7 +708,7 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
         if (!deviceFilesAvailable)
           const InfoBox(
               'التقاط الصور واختيارها من الهاتف متاح في نسخة المتصفح. '
-              'نسخة الهاتف الأصلية تحتاج طريقة لحفظ الصور لم تُعتمد بعد.',
+              '',
               icon: Icons.warning_amber_rounded),
         const SizedBox(height: 8),
         Row(children: [
@@ -817,10 +817,10 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
         const Align(
           alignment: Alignment.centerRight,
           child: Chip(
-              label: Text('الحد الأقصى للصور: يُحدَّد لاحقًا',
+              label: Text('يُفضَّل ألا يزيد الدرس عن 20 ميغابايت',
                   style: TextStyle(fontSize: 11.5))),
         ),
-        _nextButton('التالي: العقد والربط', _next),
+        _nextButton('التالي: محاور الدرس', _next),
       ],
     );
   }
@@ -837,18 +837,18 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
               children: [
                 Row(children: [
                   const Expanded(
-                    child: Text('عقد المعرفة في الدرس',
+                    child: Text('محاور الدرس',
                         style: TextStyle(
                             fontSize: 16, fontWeight: FontWeight.w700)),
                   ),
-                  Text('تُدخلها أنت يدويًا',
+                  Text('تكتبها أنت بنفسك',
                       style: TextStyle(
                           fontSize: 12, color: context.mq.ink2)),
                 ]),
                 if (_nodes.isEmpty)
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 12),
-                    child: Text('لا عقد بعد.'),
+                    child: Text('لا محاور بعد.'),
                   ),
                 for (final n in _nodes)
                   ListTile(
@@ -879,7 +879,7 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
                 OutlinedButton.icon(
                   onPressed: _editNode,
                   icon: const Icon(Icons.add),
-                  label: const Text('أضف عقدة'),
+                  label: const Text('أضف محورًا'),
                 ),
               ],
             ),
@@ -1042,7 +1042,7 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
                   ),
                 ),
                 const SizedBox(height: 6),
-                Text('${_nodes.length} عقد · ${_attachments.length} مرفقات',
+                Text('${_nodes.length} محاور · ${_attachments.length} مرفقات',
                     style: const TextStyle(fontSize: 12.5)),
               ],
             ),
@@ -1077,7 +1077,7 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
                             fontSize: 16, fontWeight: FontWeight.w700)),
                   ),
                   if (_lessonId != null)
-                    Text('محفوظ: ${_savedStatus.label} · الإصدار $_savedVersion',
+                    Text('محفوظ: ${_savedStatus.label} · النسخة $_savedVersion',
                         style: const TextStyle(fontSize: 12)),
                 ]),
                 const SizedBox(height: 8),
@@ -1096,7 +1096,7 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
                   const Padding(
                     padding: EdgeInsets.only(top: 6),
                     child: Text(
-                        'تعديل درس منشور ينشئ إصدارًا جديدًا ويعيده إلى مسودة.',
+                        'تعديل درس منشور ينشئ نسخة جديدة ويعيده إلى مسودة.',
                         style: TextStyle(fontSize: 12)),
                   ),
               ],
@@ -1111,18 +1111,19 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
               children: [
                 Row(children: [
                   const Expanded(
-                    child: Text('ملف للتلميذ',
+                    child: Text('نسخة الدرس',
                         style: TextStyle(
                             fontSize: 16, fontWeight: FontWeight.w700)),
                   ),
-                  Chip(label: Text('الإصدار $_savedVersion')),
+                  Chip(label: Text('النسخة $_savedVersion')),
                 ]),
                 const Text('يُضاف ختم يكشف أي تلف في الملف عند حفظ النسخة.',
                     style: TextStyle(fontSize: 12.5)),
                 const SizedBox(height: 6),
                 const InfoBox(
-                    'الملف وسيلة نقل لهذه النسخة فقط، وليست تصور المنتج '
-                    'النهائي. لا تُصدَّر إلا الدروس المنشورة.'),
+                    'الإرسال العادي للتلاميذ يتم بزر «انشر للتلاميذ». '
+                    'حفظ النسخة كملف مفيد للاحتفاظ بها أو لإرسالها يدويًا، '
+                    'ولا يتاح إلا للدروس المنشورة.'),
               ],
             ),
           ),
@@ -1135,6 +1136,20 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
           style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
         ),
         const SizedBox(height: 8),
+        if (_lessonId != null && _savedStatus == LessonStatus.published) ...[
+          FilledButton.icon(
+            onPressed: (_busy || !canSendToStudents(context))
+                ? null
+                : () => publishLessonOnline(context, _lessonId!),
+            icon: const Icon(Icons.send_outlined),
+            label: Text(canSendToStudents(context)
+                ? 'انشر للتلاميذ'
+                : 'انشر للتلاميذ (يتطلب الدخول بكلمة مرور الأساتذة)'),
+            style:
+                FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+          ),
+          const SizedBox(height: 8),
+        ],
         OutlinedButton(
           onPressed: _busy
               ? null
@@ -1148,6 +1163,15 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
                     return;
                   }
                   final ok = await _save(_targetStatus);
+                  if (ok &&
+                      mounted &&
+                      _targetStatus == LessonStatus.published &&
+                      _lessonId != null &&
+                      canSendToStudents(context)) {
+                    // A published lesson is meant for the students: send it
+                    // now (and prove it arrived) when the teacher is signed in.
+                    await publishLessonOnline(context, _lessonId!);
+                  }
                   if (ok && mounted) Navigator.of(context).pop(true);
                 },
           style: OutlinedButton.styleFrom(

@@ -42,7 +42,7 @@ class _TeacherLessonsTabState extends State<TeacherLessonsTab> {
     final ok = await confirmDialog(
       context,
       title: 'حذف الدرس',
-      message: 'سيُحذف «${item.lesson.title}» بصفحاته وعقده من هذا الجهاز. '
+      message: 'سيُحذف «${item.lesson.title}» بصفحاته ومحاوره من هذا الجهاز. '
           'لا يمس هذا بيانات أي تلميذ.',
       confirmLabel: 'احذف',
     );
@@ -63,6 +63,38 @@ class _TeacherLessonsTabState extends State<TeacherLessonsTab> {
         ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
           children: [
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text('إرسال الدروس للتلاميذ',
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 4),
+                    Text(
+                        canSendToStudents(context)
+                            ? 'الدروس «المنشورة» لا تصل إلى التلاميذ إلا بعد إرسالها. '
+                                'سيتحقق التطبيق من وصول كل درس بصوره.'
+                            : 'للإرسال ادخل من رابط لوحة الأستاذ بكلمة مرور الأساتذة.',
+                        style: const TextStyle(fontSize: 12.5)),
+                    const SizedBox(height: 8),
+                    FilledButton.icon(
+                      onPressed: canSendToStudents(context)
+                          ? () async {
+                              await publishAllOnline(context);
+                              widget.onChanged();
+                            }
+                          : null,
+                      icon: const Icon(Icons.send_outlined),
+                      label: const Text('أرسل دروسي المنشورة للتلاميذ'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
             TextField(
               controller: _search,
               textAlign: TextAlign.right,
@@ -173,8 +205,8 @@ class _TeacherLessonsTabState extends State<TeacherLessonsTab> {
             ),
             const SizedBox(height: 8),
             const InfoBox(
-                '«القسم» معلومة وصفية فقط. المستوى (1 أو 2 أو 3) هو الذي '
-                'يحدد خانة الدرس.'),
+                '«القسم» للتوضيح فقط. المستوى (الأولى أو الثانية أو الثالثة '
+                'ثانوي) هو الذي يحدد لمن يصل الدرس.'),
           ],
         ),
         Positioned(

@@ -69,7 +69,7 @@ class _ManageImportedScreenState extends State<ManageImportedScreen> {
                         leading: const Icon(Icons.storage_outlined),
                         title: Text('المساحة المستعملة ${formatBytes(used)}'),
                         subtitle: const Text(
-                            'الحد الأقصى غير محدد بعد. قرار مفتوح.'),
+                            'ما زال في جهازك متّسع.'),
                       ),
                     ),
                     Card(
@@ -84,7 +84,7 @@ class _ManageImportedScreenState extends State<ManageImportedScreen> {
                                     style: const TextStyle(
                                         fontWeight: FontWeight.w700)),
                                 subtitle: Text(
-                                    'الإصدار ${i.lesson.versionNumber} · '
+                                    'النسخة ${i.lesson.versionNumber} · '
                                     '${formatBytes(i.bytes)}'),
                                 trailing: Row(
                                   mainAxisSize: MainAxisSize.min,

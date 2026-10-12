@@ -333,7 +333,7 @@ class TeacherPackageService {
       if (content.versionNumber > same.versionNumber) {
         return PackagePreview(
           kind: PackageKind.newerVersion,
-          message: 'عندك الإصدار ${same.versionNumber}، وهذا الملف الإصدار '
+          message: 'عندك النسخة ${same.versionNumber}، وهذا الملف النسخة '
               '${content.versionNumber}. تحديثها يستبدل محتوى الدرس فقط.',
           content: content,
           fingerprint: fingerprint,
@@ -344,7 +344,7 @@ class TeacherPackageService {
       if (content.versionNumber < same.versionNumber) {
         return PackagePreview(
           kind: PackageKind.olderVersion,
-          message: 'عندك الإصدار ${same.versionNumber} وهو أحدث من هذه '
+          message: 'عندك النسخة ${same.versionNumber} وهي أحدث من هذا '
               'الملف (${content.versionNumber}). لم يُغيَّر شيء.',
           content: content,
           fingerprint: fingerprint,
@@ -354,7 +354,7 @@ class TeacherPackageService {
       }
       return PackagePreview(
         kind: PackageKind.sameVersionConflict,
-        message: 'عندك الدرس نفسه بالإصدار نفسه لكن بمحتوى مختلف. '
+        message: 'عندك الدرس نفسه بالنسخة نفسها لكن بمحتوى مختلف. '
             'رُفض الملف ولم يُغيَّر شيء.',
         content: content,
         fingerprint: fingerprint,
@@ -433,7 +433,7 @@ class TeacherPackageService {
     }
     final versionNumber = lesson['versionNumber'];
     if (versionNumber is! int || versionNumber < 1) {
-      throw const FormatException('رقم الإصدار غير صالح');
+      throw const FormatException('رقم نسخة الدرس غير صالح');
     }
 
     final rawPages = m['pages'];
@@ -466,21 +466,21 @@ class TeacherPackageService {
     }
 
     final rawNodes = m['nodes'];
-    if (rawNodes is! List) throw const FormatException('العقد مفقودة');
+    if (rawNodes is! List) throw const FormatException('المحاور مفقودة');
     final nodes = <NodeDraft>[];
     for (final n in rawNodes) {
       if (n is! Map<String, dynamic>) {
-        throw const FormatException('عقدة غير صالحة');
+        throw const FormatException('محور غير صالح');
       }
       final key = n['key'];
       final name = n['name'];
       if (key is! String || key.isEmpty || name is! String) {
-        throw const FormatException('عقدة غير صالحة');
+        throw const FormatException('محور غير صالح');
       }
       final from = n['pageFrom'];
       final to = n['pageTo'];
       if ((from != null && from is! int) || (to != null && to is! int)) {
-        throw const FormatException('نطاق عقدة غير صالح');
+        throw const FormatException('نطاق محور غير صالح');
       }
       nodes.add(NodeDraft(
         key: key,

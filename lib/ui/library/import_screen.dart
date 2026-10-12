@@ -162,7 +162,7 @@ class _ImportScreenState extends State<ImportScreen> {
                         Row(children: [
                           const TeacherBadge(),
                           const SizedBox(width: 8),
-                          Chip(label: Text('الإصدار ${c.versionNumber}')),
+                          Chip(label: Text('النسخة ${c.versionNumber}')),
                         ]),
                         const SizedBox(height: 6),
                         Text(c.title,
@@ -172,7 +172,7 @@ class _ImportScreenState extends State<ImportScreen> {
                             '${c.subjectName} · ${internalLevelLabel(c.internalLevel)} · '
                             '${c.pages.length} صفحات · ${formatBytes(c.totalBytes)}',
                             style: const TextStyle(fontSize: 12.5)),
-                        Text('المرسل: ${c.teacherName} (تسمية غير موثّقة)',
+                        Text('المرسل: ${c.teacherName} (اسم غير مؤكَّد)',
                             style: TextStyle(
                                 fontSize: 12.5,
                                 color: context.mq.ink2)),

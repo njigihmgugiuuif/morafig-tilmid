@@ -159,7 +159,7 @@ class TeacherContentRepository {
     }
     for (final n in input.nodes) {
       if (n.key.isEmpty) {
-        issues.add(const LessonIssue('node_key_required', 'عقدة بلا معرّف.'));
+        issues.add(const LessonIssue('node_key_required', 'محور بلا معرّف.'));
       }
     }
     if (issues.isNotEmpty) throw TeacherContentException(issues);

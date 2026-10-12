@@ -65,7 +65,7 @@ class _TeacherAccountTabState extends State<TeacherAccountTab> {
     final action = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(hasPin ? 'تغيير رمز PIN' : 'تفعيل رمز PIN'),
+        title: Text(hasPin ? 'تغيير الرمز السري' : 'تفعيل الرمز السري'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -111,8 +111,8 @@ class _TeacherAccountTabState extends State<TeacherAccountTab> {
       showSnack(
           context,
           nw.isEmpty
-              ? 'أُلغي رمز PIN.'
-              : 'حُفظ رمز PIN.');
+              ? 'أُلغي الرمز السري.'
+              : 'حُفظ الرمز السري.');
     } else {
       showSnack(context,
           'الرمز الحالي خاطئ، أو الرمز الجديد أقل من 4 أرقام أو فيه غير الأرقام.');
@@ -134,7 +134,7 @@ class _TeacherAccountTabState extends State<TeacherAccountTab> {
               title: Text(
                   (snap.data ?? '').isEmpty ? 'اسم الأستاذ' : snap.data!,
                   style: const TextStyle(fontWeight: FontWeight.w700)),
-              subtitle: const Text('يظهر كتسمية غير موثّقة على دروسك'),
+              subtitle: const Text('يظهر على دروسك كاسم غير مؤكَّد'),
               trailing: const Icon(Icons.edit_outlined),
               onTap: _rename,
             ),
@@ -149,7 +149,7 @@ class _TeacherAccountTabState extends State<TeacherAccountTab> {
                   final has = snap.data ?? false;
                   return ListTile(
                     leading: const Icon(Icons.lock_outline),
-                    title: const Text('رمز PIN'),
+                    title: const Text('الرمز السري'),
                     subtitle: const Text('راحة على هذا الجهاز، وليس حماية'),
                     trailing: Chip(label: Text(has ? 'مفعّل' : 'غير مفعّل')),
                     onTap: () => _changePin(has),
@@ -164,7 +164,7 @@ class _TeacherAccountTabState extends State<TeacherAccountTab> {
                   final last = s?.last;
                   return ListTile(
                     leading: const Icon(Icons.upload_file_outlined),
-                    title: const Text('الملفات المصدَّرة'),
+                    title: const Text('النسخ المحفوظة كملفات'),
                     subtitle: Text(s == null
                         ? '...'
                         : s.packages == 0
@@ -198,7 +198,7 @@ class _TeacherAccountTabState extends State<TeacherAccountTab> {
           ),
         ),
         const InfoBox(
-          'تحقق الهوية وصلاحيات الخادم: غير متاح في هذه النسخة. قرار مفتوح.',
+          'التحقق من هوية كل أستاذ على حدة غير متاح في هذه النسخة: كلمة المرور واحدة للأساتذة.',
           icon: Icons.lock_outline,
         ),
         const SizedBox(height: 16),

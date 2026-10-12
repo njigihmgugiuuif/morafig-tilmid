@@ -3,14 +3,19 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../domain/sha256.dart';
 import '../repositories/teacher_content_repository.dart';
 import 'remote_config.dart';
 import 'teacher_package_service.dart';
 
 /// A network/server problem with a message that can be shown to the user.
 class RemoteException implements Exception {
-  const RemoteException(this.message);
+  const RemoteException(this.message, {this.transient = false});
   final String message;
+
+  /// True for problems that may disappear on a second try (no connection,
+  /// timeout, server busy). Wrong password / refused data are never retried.
+  final bool transient;
   @override
   String toString() => message;
 }
@@ -59,6 +64,8 @@ class LessonRemoteService {
     String anonKey = kSupabaseAnonKey,
     http.Client? client,
     this.timeout = const Duration(seconds: 60),
+    this.retryDelay = const Duration(milliseconds: 700),
+    this.attempts = 3,
   })  : baseUrl = baseUrl.endsWith('/')
             ? baseUrl.substring(0, baseUrl.length - 1)
             : baseUrl,
@@ -68,6 +75,10 @@ class LessonRemoteService {
   final String baseUrl;
   final String anonKey;
   final Duration timeout;
+
+  /// Pause before a second try of a failed file, and how many tries in all.
+  final Duration retryDelay;
+  final int attempts;
   final http.Client _client;
 
   static const bucket = 'lesson-files';
@@ -90,10 +101,12 @@ class LessonRemoteService {
     try {
       return await call().timeout(timeout);
     } on TimeoutException {
-      throw const RemoteException('انتهت مهلة الاتصال بالخادم. حاول لاحقًا.');
+      throw const RemoteException('انتهت مهلة الاتصال بالخادم. حاول لاحقًا.',
+          transient: true);
     } on http.ClientException {
       throw const RemoteException(
-          'تعذّر الاتصال بالخادم. تحقّق من الإنترنت.');
+          'تعذّر الاتصال بالخادم. تحقّق من الإنترنت.',
+          transient: true);
     }
   }
 
@@ -119,9 +132,11 @@ class LessonRemoteService {
     }
     if (res.statusCode != 200) {
       final msg = parsed['message'];
-      throw RemoteException(msg is String && msg.isNotEmpty
-          ? msg
-          : 'رفض الخادم الطلب (${res.statusCode}).');
+      throw RemoteException(
+          msg is String && msg.isNotEmpty
+              ? msg
+              : 'رفض الخادم الطلب (${res.statusCode}).',
+          transient: res.statusCode >= 500);
     }
     return parsed;
   }
@@ -136,35 +151,6 @@ class LessonRemoteService {
       if (e.message == 'كلمة مرور الأساتذة غير صحيحة.') return false;
       rethrow;
     }
-  }
-
-  /// Uploads a published lesson ([packageJson] is the output of
-  /// `TeacherPackageService.exportLesson`) to the shared storage.
-  Future<void> publish({
-    required String password,
-    required String originLessonId,
-    required int versionNumber,
-    required int internalLevel,
-    required String title,
-    required String subjectName,
-    required String teacherName,
-    required String fingerprint,
-    required String packageJson,
-  }) async {
-    await _function({
-      'action': 'publish',
-      'password': password,
-      'lesson': {
-        'originLessonId': originLessonId,
-        'versionNumber': versionNumber,
-        'internalLevel': internalLevel,
-        'title': title,
-        'subjectName': subjectName,
-        'teacherName': teacherName,
-        'fingerprint': fingerprint,
-      },
-      'package': packageJson,
-    });
   }
 
   Future<void> unpublish({
@@ -203,66 +189,283 @@ class LessonRemoteService {
         .toList();
   }
 
-  /// The lesson file text (the same format as the manual export).
-  Future<String> downloadPackage(String packagePath) async {
-    _requireConfigured();
-    final uri = Uri.parse('$baseUrl/storage/v1/object/public/$bucket/'
-        '${packagePath.split('/').map(Uri.encodeComponent).join('/')}');
-    final res = await _send(() => _client.get(uri, headers: _headers));
-    if (res.statusCode != 200) {
-      throw RemoteException('تعذّر تنزيل ملف الدرس (${res.statusCode}).');
+  /// Runs [job]; a transient failure is retried (with a pause) up to
+  /// [attempts] times in all. Other failures surface at once.
+  Future<T> _retry<T>(Future<T> Function() job) async {
+    var n = 0;
+    while (true) {
+      n++;
+      try {
+        return await job();
+      } on RemoteException catch (e) {
+        if (!e.transient || n >= attempts) rethrow;
+        if (retryDelay > Duration.zero) await Future<void>.delayed(retryDelay);
+      }
     }
-    return utf8.decode(res.bodyBytes);
   }
 
-  /// Proof that a published lesson really is on the shared storage: it must
-  /// be listed under its level, its file must download, and the file must
-  /// carry the same fingerprint and the same number of pages. Every failing
-  /// step has its own message so the cause is visible, never a silent "ok".
-  Future<PublishCheck> verifyPublished({
-    required String originLessonId,
-    required int level,
-    required String fingerprint,
-    required int expectedPages,
+  static String _extFor(String mime) {
+    switch (mime) {
+      case 'image/jpeg':
+        return 'jpg';
+      case 'image/png':
+        return 'png';
+      case 'image/webp':
+        return 'webp';
+      case 'application/pdf':
+        return 'pdf';
+      default:
+        return 'bin';
+    }
+  }
+
+  /// Splits a lesson file (the manual-export text) into the small index
+  /// (manifest) and the separate photo / attachment files.
+  static ({String manifest, List<LessonFile> files, Map<String, dynamic> meta})
+      splitPackage(String packageJson) {
+    final d = jsonDecode(packageJson);
+    if (d is! Map<String, dynamic>) {
+      throw const RemoteException('ملف الدرس غير مقروء.');
+    }
+    final lesson = d['lesson'] as Map<String, dynamic>;
+    final id = lesson['originLessonId'] as String;
+    final ver = lesson['versionNumber'] as int;
+    final folder = 'lessons/$id/v$ver';
+    final files = <LessonFile>[];
+    final pages = <Map<String, dynamic>>[];
+    var i = 0;
+    for (final p in (d['pages'] as List).cast<Map<String, dynamic>>()) {
+      i++;
+      final bytes = base64Decode(p['data'] as String);
+      final mime = p['mimeType'] as String;
+      final f = LessonFile(
+          path: '$folder/page-$i.${_extFor(mime)}',
+          mimeType: mime,
+          bytes: bytes);
+      files.add(f);
+      pages.add({
+        'mimeType': mime,
+        'quarterTurns': p['quarterTurns'],
+        'path': f.path,
+        'size': bytes.length,
+        'sha256': Sha256.hex(bytes),
+      });
+    }
+    final atts = <Map<String, dynamic>>[];
+    i = 0;
+    for (final a in (d['attachments'] as List).cast<Map<String, dynamic>>()) {
+      i++;
+      final bytes = base64Decode(a['data'] as String);
+      final mime = a['mimeType'] as String;
+      final f = LessonFile(
+          path: '$folder/att-$i.${_extFor(mime)}',
+          mimeType: mime,
+          bytes: bytes);
+      files.add(f);
+      atts.add({
+        'name': a['name'],
+        'mimeType': mime,
+        'path': f.path,
+        'size': bytes.length,
+        'sha256': Sha256.hex(bytes),
+      });
+    }
+    final manifest = <String, dynamic>{...d, 'pages': pages, 'attachments': atts};
+    return (
+      manifest: jsonEncode(manifest),
+      files: files,
+      meta: {
+        'originLessonId': id,
+        'versionNumber': ver,
+        'internalLevel': lesson['internalLevel'],
+        'title': lesson['title'],
+        'subjectName': lesson['subjectName'],
+        'teacherName': lesson['teacherName'],
+        'fingerprint': d['fingerprint'],
+      },
+    );
+  }
+
+  /// Teacher side: sends a lesson photo by photo, asks the server to confirm
+  /// that every file is there, then READS EVERYTHING BACK (every file's size
+  /// and SHA-256) before saying it arrived. Throws [RemoteException] naming
+  /// the step that failed; never returns normally unless the read-back passed.
+  Future<PublishCheck> publishLesson({
+    required String password,
+    required String packageJson,
+    void Function(String message)? onProgress,
   }) async {
-    final listed = await list(level: level);
+    _requireConfigured();
+    final Map<String, dynamic> info = await _retry(
+        () => _function({'action': 'verify', 'password': password}));
+    if ((info['version'] as num?)?.toInt() != 2) {
+      throw const RemoteException(
+          'دالة الخادم قديمة. الصق نص الدالة الجديد في Supabase ثم أعد الإرسال '
+          '(الخطوات في ملف SUPABASE_SETUP_AR.md).');
+    }
+    final split = splitPackage(packageJson);
+    final total = split.files.length;
+    var n = 0;
+    for (final f in split.files) {
+      n++;
+      onProgress?.call('رفع الصورة $n من $total…');
+      try {
+        await _retry(() => _function({
+              'action': 'putFile',
+              'password': password,
+              'path': f.path,
+              'mimeType': f.mimeType,
+              'data': base64Encode(f.bytes),
+            }));
+      } on RemoteException catch (e) {
+        throw RemoteException('تعذّر رفع الصورة $n من $total: ${e.message}');
+      }
+    }
+    onProgress?.call('تأكيد وصول كل الصور…');
+    await _retry(() => _function({
+          'action': 'commit',
+          'password': password,
+          'lesson': split.meta,
+          'manifest': split.manifest,
+        }));
+    onProgress?.call('قراءة الدرس من الخادم للتأكد…');
+    final level = (split.meta['internalLevel'] as num).toInt();
+    final listed = await _retry(() => list(level: level));
     RemoteLessonEntry? entry;
     for (final e in listed) {
-      if (e.originLessonId == originLessonId) {
-        entry = e;
-        break;
-      }
+      if (e.originLessonId == split.meta['originLessonId']) entry = e;
     }
     if (entry == null) {
       throw RemoteException(
-          'رُفع الدرس لكنه لا يظهر في قائمة المستوى $level على الخادم '
-          '(عدد دروس هذا المستوى الآن: ${listed.length}).');
+          'رُفع الدرس لكنه لا يظهر في قائمة المستوى $level على الخادم.');
     }
-    if (entry.fingerprint != fingerprint) {
+    if (entry.fingerprint != split.meta['fingerprint']) {
       throw const RemoteException(
-          'الدرس موجود على الخادم لكن محتواه لا يطابق ما أرسلته.');
+          'الدرس على الخادم لا يطابق ما أرسلته (المحتوى مختلف).');
     }
-    final text = await downloadPackage(entry.packagePath);
+    final got = await fetchLesson(entry);
+    if (got.pages != (jsonDecode(split.manifest)['pages'] as List).length) {
+      throw RemoteException(
+          'وصل الدرس بـ ${got.pages} صفحة بدل '
+          '${(jsonDecode(split.manifest)['pages'] as List).length}.');
+    }
+    return PublishCheck(
+        pages: got.pages, bytes: got.bytes, files: got.files);
+  }
+
+  /// Downloads ONE file and checks its size and SHA-256 against the index.
+  Future<List<int>> _fetchFile(String path, int size, String sha) async {
+    final uri = Uri.parse('$baseUrl/storage/v1/object/public/$bucket/'
+        '${path.split('/').map(Uri.encodeComponent).join('/')}');
+    final res = await _send(() => _client.get(uri, headers: _headers));
+    if (res.statusCode == 404 || res.statusCode == 400) {
+      throw const RemoteException('الملف غير موجود على الخادم.');
+    }
+    if (res.statusCode != 200) {
+      throw RemoteException('تعذّر تنزيل الملف (${res.statusCode}).',
+          transient: res.statusCode >= 500);
+    }
+    final bytes = res.bodyBytes;
+    if (bytes.length != size || Sha256.hex(bytes) != sha) {
+      // A cut-off or damaged download is worth one more try.
+      throw RemoteException(
+          'الملف وصل ناقصًا أو تالفًا (${bytes.length} بايت من $size).',
+          transient: true);
+    }
+    return bytes;
+  }
+
+  /// Student side: downloads the index and EVERY file of a lesson, verifies
+  /// each one, and returns the full lesson file text for the normal import.
+  /// If any photo is missing or damaged nothing is returned (the lesson is
+  /// never saved half-complete).
+  Future<FetchedLesson> fetchLesson(RemoteLessonEntry e) async {
+    _requireConfigured();
+    final uri = Uri.parse('$baseUrl/storage/v1/object/public/$bucket/'
+        '${e.packagePath.split('/').map(Uri.encodeComponent).join('/')}');
+    final res = await _retry(() async {
+      final r = await _send(() => _client.get(uri, headers: _headers));
+      if (r.statusCode != 200) {
+        throw RemoteException('تعذّر تنزيل فهرس الدرس (${r.statusCode}).',
+            transient: r.statusCode >= 500);
+      }
+      return r;
+    });
     final Object? decoded;
     try {
-      decoded = jsonDecode(text);
+      decoded = jsonDecode(utf8.decode(res.bodyBytes));
     } on FormatException {
-      throw const RemoteException(
-          'نُزّل ملف الدرس من الخادم لكنه غير مقروء.');
+      throw const RemoteException('فهرس الدرس غير مقروء.');
     }
-    final pages = decoded is Map<String, dynamic> && decoded['pages'] is List
-        ? (decoded['pages'] as List).length
-        : -1;
-    if (decoded is! Map<String, dynamic> ||
-        decoded['fingerprint'] != fingerprint) {
-      throw const RemoteException(
-          'الملف الذي على الخادم لا يطابق الدرس المرسَل (المحتوى مختلف).');
+    if (decoded is! Map<String, dynamic> || decoded['pages'] is! List) {
+      throw const RemoteException('فهرس الدرس غير صالح.');
     }
-    if (pages != expectedPages) {
-      throw RemoteException(
-          'وصل الدرس بـ $pages صفحة بدل $expectedPages.');
+    // Older single-file lessons carry their photos inline.
+    final firstPage = (decoded['pages'] as List).isEmpty
+        ? null
+        : (decoded['pages'] as List).first;
+    if (firstPage is Map && firstPage.containsKey('data')) {
+      final text = utf8.decode(res.bodyBytes);
+      return FetchedLesson(
+          json: text,
+          pages: (decoded['pages'] as List).length,
+          files: (decoded['pages'] as List).length,
+          bytes: res.bodyBytes.length);
     }
-    return PublishCheck(pages: pages, bytes: utf8.encode(text).length);
+    final pagesIn = (decoded['pages'] as List).cast<Map<String, dynamic>>();
+    final attsIn =
+        ((decoded['attachments'] as List?) ?? const []).cast<Map<String, dynamic>>();
+    var total = 0;
+    final pagesOut = <Map<String, dynamic>>[];
+    var i = 0;
+    for (final p in pagesIn) {
+      i++;
+      final List<int> bytes;
+      try {
+        bytes = await _retry(() => _fetchFile(
+            p['path'] as String, (p['size'] as num).toInt(),
+            p['sha256'] as String));
+      } on RemoteException catch (ex) {
+        throw RemoteException(
+            'الصورة $i من ${pagesIn.length} لم تصل: ${ex.message}');
+      }
+      total += bytes.length;
+      pagesOut.add({
+        'mimeType': p['mimeType'],
+        'quarterTurns': p['quarterTurns'],
+        'data': base64Encode(bytes),
+      });
+    }
+    final attsOut = <Map<String, dynamic>>[];
+    i = 0;
+    for (final a in attsIn) {
+      i++;
+      final List<int> bytes;
+      try {
+        bytes = await _retry(() => _fetchFile(
+            a['path'] as String, (a['size'] as num).toInt(),
+            a['sha256'] as String));
+      } on RemoteException catch (ex) {
+        throw RemoteException(
+            'المرفق $i من ${attsIn.length} لم يصل: ${ex.message}');
+      }
+      total += bytes.length;
+      attsOut.add({
+        'name': a['name'],
+        'mimeType': a['mimeType'],
+        'data': base64Encode(bytes),
+      });
+    }
+    final rebuilt = <String, dynamic>{
+      ...decoded,
+      'pages': pagesOut,
+      'attachments': attsOut,
+    };
+    return FetchedLesson(
+        json: jsonEncode(rebuilt),
+        pages: pagesOut.length,
+        files: pagesOut.length + attsOut.length,
+        bytes: total);
   }
 
   /// Step-by-step connection test for one level path, in plain Arabic.
@@ -287,17 +490,12 @@ class LessonRemoteService {
     }
     final first = listed.first;
     try {
-      final text = await downloadPackage(first.packagePath);
-      final d = jsonDecode(text);
-      final pages = d is Map<String, dynamic> && d['pages'] is List
-          ? (d['pages'] as List).length
-          : 0;
-      final mb = (utf8.encode(text).length / 1048576).toStringAsFixed(2);
-      out.add('✓ تنزيل «${first.title}» نجح: $pages صفحة، $mb ميغابايت.');
+      final got = await fetchLesson(first);
+      final mb = (got.bytes / 1048576).toStringAsFixed(2);
+      out.add('✓ تنزيل «${first.title}» نجح كاملًا: ${got.pages} صفحة، '
+          '$mb ميغابايت، وكل صورة طابقت بصمتها.');
     } on RemoteException catch (e) {
       out.add('✗ تنزيل «${first.title}»: ${e.message}');
-    } on FormatException {
-      out.add('✗ ملف «${first.title}» نُزّل لكنه غير مقروء.');
     }
     return out;
   }
@@ -305,11 +503,36 @@ class LessonRemoteService {
   void close() => _client.close();
 }
 
+/// One photo / attachment to upload.
+class LessonFile {
+  const LessonFile(
+      {required this.path, required this.mimeType, required this.bytes});
+  final String path;
+  final String mimeType;
+  final List<int> bytes;
+}
+
+/// A lesson fully downloaded and verified (every file matched its size and
+/// SHA-256). [json] is the normal lesson file text, ready for the import.
+class FetchedLesson {
+  const FetchedLesson(
+      {required this.json,
+      required this.pages,
+      required this.files,
+      required this.bytes});
+  final String json;
+  final int pages;
+  final int files;
+  final int bytes;
+}
+
 /// What a read-back of a published lesson proved.
 class PublishCheck {
-  const PublishCheck({required this.pages, required this.bytes});
+  const PublishCheck(
+      {required this.pages, required this.bytes, this.files = 0});
   final int pages;
   final int bytes;
+  final int files;
   String get sizeLabel => '${(bytes / 1048576).toStringAsFixed(2)} ميغابايت';
 }
 
@@ -383,8 +606,8 @@ class LessonSyncService {
           unchanged++;
           continue;
         }
-        final text = await _remote.downloadPackage(e.packagePath);
-        final result = await _packages.importPackage(text);
+        final got = await _remote.fetchLesson(e);
+        final result = await _packages.importPackage(got.json);
         switch (result.preview.kind) {
           case PackageKind.fresh:
             added++;

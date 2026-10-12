@@ -30,12 +30,12 @@ class NodeDetailScreen extends StatelessWidget {
         final matches = agg?.nodes.where((n) => n.id == nodeId).toList() ?? [];
         final node = matches.isEmpty ? null : matches.first;
         return Scaffold(
-          appBar: AppBar(title: Text(node?.name ?? 'العقدة')),
+          appBar: AppBar(title: Text(node?.name ?? 'المحور')),
           body: SafeArea(
             child: snap.connectionState != ConnectionState.done
                 ? const Center(child: CircularProgressIndicator())
                 : (agg == null || node == null)
-                    ? const Center(child: Text('هذه العقدة لم تعد موجودة.'))
+                    ? const Center(child: Text('هذا المحور لم يعد موجودًا.'))
                     : ListView(
                         padding: const EdgeInsets.all(16),
                         children: [
@@ -78,7 +78,7 @@ class NodeDetailScreen extends StatelessWidget {
                                   const SizedBox(height: 6),
                                   if (node.pageFrom == null ||
                                       node.pageTo == null)
-                                    const Text('لم يحدّد الأستاذ صفحات لهذه العقدة.')
+                                    const Text('لم يحدّد الأستاذ صفحات لهذا المحور.')
                                   else ...[
                                     Text(
                                         'الصفحات ${node.pageFrom}–${node.pageTo}'),
@@ -121,8 +121,8 @@ class NodeDetailScreen extends StatelessWidget {
                           ),
                           const InfoBox(
                             'الإتقان والمراجعة القادمة والأخطاء لا تظهر هنا: '
-                            'عقدة الأستاذ غير مربوطة بعقد مادتك، وربط مواد '
-                            'الأستاذ بمواد التلميذ قرار مفتوح. '
+                            'محور الأستاذ غير مربوط بمحاور مادتك بعد، '
+                            'لذلك لا نحسب له إتقانًا. '
                             'لا نعرض أرقامًا غير حقيقية.',
                             icon: Icons.info_outline,
                           ),

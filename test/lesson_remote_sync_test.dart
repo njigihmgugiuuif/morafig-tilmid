@@ -7,6 +7,7 @@ import 'package:test/test.dart';
 
 import 'package:student_app/database/teacher_content_database.dart';
 import 'package:student_app/database/testing/in_memory_database.dart';
+import 'package:student_app/domain/sha256.dart';
 import 'package:student_app/domain/teacher_content_domain.dart';
 import 'package:student_app/repositories/teacher_content_repository.dart';
 import 'package:student_app/services/lesson_remote_service.dart';
@@ -25,9 +26,17 @@ class FakeServer {
   FakeServer(this.password);
   final String password;
   final Map<String, Map<String, dynamic>> rows = {};
-  final Map<String, String> files = {};
+
+  /// Shared storage: path → bytes (photos AND manifests).
+  final Map<String, List<int>> storage = {};
   bool offline = false;
   int downloads = 0;
+  int functionVersion = 2;
+
+  /// Failure injection.
+  int putFailuresLeft = 0; // next N putFile calls answer 500
+  final Set<String> flakyGetOnce = {}; // first GET of these paths answers 503
+  final Set<String> silentlyDrop = {}; // putFile "succeeds" but stores nothing
 
   http.Response _json(int code, Object body) => http.Response.bytes(
       utf8.encode(jsonEncode(body)), code,
@@ -44,12 +53,36 @@ class FakeServer {
       }
       switch (body['action']) {
         case 'verify':
-          return _json(200, {'ok': true});
-        case 'publish':
+          return _json(200, {'ok': true, 'version': functionVersion});
+        case 'putFile':
+          if (putFailuresLeft > 0) {
+            putFailuresLeft--;
+            return _json(500, {'message': 'storage busy'});
+          }
+          final bytes = base64Decode(body['data'] as String);
+          if (!silentlyDrop.contains(body['path'])) {
+            storage[body['path'] as String] = bytes;
+          }
+          return _json(200, {'ok': true, 'size': bytes.length});
+        case 'commit':
           final l = body['lesson'] as Map<String, dynamic>;
+          final m = jsonDecode(body['manifest'] as String)
+              as Map<String, dynamic>;
+          final bad = <String>[];
+          for (final f in [...m['pages'] as List, ...m['attachments'] as List]) {
+            final got = storage[f['path']];
+            if (got == null) {
+              bad.add('${f['path']} (مفقود)');
+            } else if (got.length != f['size']) {
+              bad.add('${f['path']} (حجم مختلف)');
+            }
+          }
+          if (bad.isNotEmpty) {
+            return _json(409, {'message': 'ملفات ناقصة: ${bad.join('، ')}'});
+          }
           final id = l['originLessonId'] as String;
-          final p = 'packages/$id-v${l['versionNumber']}.json';
-          files[p] = body['package'] as String;
+          final mp = 'lessons/$id/v${l['versionNumber']}/manifest.json';
+          storage[mp] = utf8.encode(body['manifest'] as String);
           rows[id] = {
             'origin_lesson_id': id,
             'version_number': l['versionNumber'],
@@ -58,11 +91,16 @@ class FakeServer {
             'subject_name': l['subjectName'],
             'teacher_name': l['teacherName'],
             'fingerprint': l['fingerprint'],
-            'package_path': p,
+            'package_path': mp,
           };
           return _json(200, {'ok': true});
         case 'unpublish':
-          rows.remove(body['originLessonId']);
+          final r = rows.remove(body['originLessonId']);
+          if (r != null) {
+            final folder = (r['package_path'] as String)
+                .substring(0, (r['package_path'] as String).lastIndexOf('/'));
+            storage.removeWhere((k, _) => k.startsWith('$folder/'));
+          }
           return _json(200, {'ok': true});
       }
       return _json(400, {'message': 'bad action'});
@@ -80,9 +118,10 @@ class FakeServer {
       downloads++;
       final p = Uri.decodeFull(
           path.substring('/storage/v1/object/public/lesson-files/'.length));
-      final f = files[p];
+      if (flakyGetOnce.remove(p)) return _json(503, {'error': 'busy'});
+      final f = storage[p];
       if (f == null) return _json(404, {'error': 'not found'});
-      return http.Response.bytes(utf8.encode(f), 200);
+      return http.Response.bytes(f, 200);
     }
     return _json(404, {});
   }
@@ -102,6 +141,7 @@ void main() {
       baseUrl: 'https://x.supabase.co/',
       anonKey: 'anon',
       client: MockClient(server.handle),
+      retryDelay: Duration.zero,
     );
     teacherDb = createInMemoryTeacherDatabase();
     studentDb = createInMemoryTeacherDatabase();
@@ -132,21 +172,10 @@ void main() {
     return id;
   }
 
-  Future<void> publish(String id, {String password = 'secret-pass'}) async {
+  Future<PublishCheck> publish(String id,
+      {String password = 'secret-pass'}) async {
     final out = await TeacherPackageService(teacherRepo).exportLesson(id);
-    final d = jsonDecode(out.json) as Map<String, dynamic>;
-    final l = d['lesson'] as Map<String, dynamic>;
-    await remote.publish(
-      password: password,
-      originLessonId: l['originLessonId'] as String,
-      versionNumber: l['versionNumber'] as int,
-      internalLevel: l['internalLevel'] as int,
-      title: l['title'] as String,
-      subjectName: l['subjectName'] as String,
-      teacherName: l['teacherName'] as String,
-      fingerprint: d['fingerprint'] as String,
-      packageJson: out.json,
-    );
+    return remote.publishLesson(password: password, packageJson: out.json);
   }
 
   test('not configured: refuses with a clear message', () async {
@@ -166,7 +195,7 @@ void main() {
     expect(() => publish(id, password: 'nope'),
         throwsA(isA<RemoteException>()));
     expect(server.rows, isEmpty);
-    expect(server.files, isEmpty);
+    expect(server.storage, isEmpty);
   });
 
   test('offline during verification is an error, not a wrong password',
@@ -260,64 +289,167 @@ void main() {
     expect(report.summary, contains('لا دروس'));
   });
 
-  test('a corrupt file on the server is reported, not imported', () async {
+  String manifestPathOf(String id) =>
+      server.rows[id]!['package_path'] as String;
+
+  List<String> photoPathsOf(String id) {
+    final folder = manifestPathOf(id)
+        .substring(0, manifestPathOf(id).lastIndexOf('/'));
+    return server.storage.keys
+        .where((k) => k.startsWith('$folder/page-'))
+        .toList()
+      ..sort();
+  }
+
+  test('a corrupt manifest on the server is reported, not imported', () async {
     final id = await publishedLesson(1);
     await publish(id);
-    final path = server.rows.values.single['package_path'] as String;
-    server.files[path] = '{"format":"marafiq.teacher-lesson","broken":';
+    server.storage[manifestPathOf(id)] =
+        utf8.encode('{"format":"marafiq.teacher-lesson","broken":');
     final report = await LessonSyncService(remote, studentRepo).syncLevel(1);
     expect(report.failed, 1);
     expect(await studentRepo.listImported(), isEmpty);
   });
 
-  group('proof of delivery', () {
-    Future<(String id, String fp)> published(int level) async {
-      final id = await publishedLesson(level);
-      await publish(id);
-      return (id, server.rows[id]!['fingerprint'] as String);
-    }
-
-    test('read-back proves the lesson and its pages are on the server',
+  group('real delivery of photos', () {
+    test('every photo is its own file and the student gets identical bytes',
         () async {
-      final (id, fp) = await published(2);
-      final check = await remote.verifyPublished(
-          originLessonId: id, level: 2, fingerprint: fp, expectedPages: 2);
+      final id = await publishedLesson(2);
+      final check = await publish(id);
       expect(check.pages, 2);
-      expect(check.bytes, greaterThan(0));
+      expect(photoPathsOf(id), hasLength(2));
+
+      final sync = await LessonSyncService(remote, studentRepo).syncLevel(2);
+      expect(sync.added, 1);
+      expect(sync.pagesReceived, 2);
+      final list = await studentRepo.listImported();
+      final agg = await studentRepo.read(list.single.lesson.id);
+      expect(agg!.pages, hasLength(2));
+      // Fingerprint of each received image equals the teacher's image.
+      final teacherAgg = await teacherRepo.read(id);
+      for (var i = 0; i < 2; i++) {
+        expect(Sha256.hex(agg.pages[i].bytes),
+            Sha256.hex(teacherAgg!.pages[i].bytes));
+      }
     });
 
-    test('a lesson missing from the level list is reported with the count',
+    test('publishing several lessons at once all arrive', () async {
+      final ids = [
+        await publishedLesson(1, title: 'أ'),
+        await publishedLesson(1, title: 'ب'),
+        await publishedLesson(1, title: 'ج'),
+      ];
+      for (final id in ids) {
+        await publish(id);
+      }
+      final report = await LessonSyncService(remote, studentRepo).syncLevel(1);
+      expect(report.added, 3);
+      expect(report.pagesReceived, 6);
+    });
+
+    test('a failed photo upload is retried and then succeeds', () async {
+      final id = await publishedLesson(1);
+      server.putFailuresLeft = 2;
+      final check = await publish(id);
+      expect(check.pages, 2);
+      expect(server.rows, hasLength(1));
+    });
+
+    test('upload that keeps failing is an error and nothing is listed',
         () async {
-      final (id, fp) = await published(2);
-      server.rows.remove(id);
+      final id = await publishedLesson(1);
+      server.putFailuresLeft = 99;
       expect(
-          () => remote.verifyPublished(
-              originLessonId: id, level: 2, fingerprint: fp, expectedPages: 2),
+          () => publish(id),
           throwsA(isA<RemoteException>()
-              .having((e) => e.message, 'message', contains('لا يظهر'))));
+              .having((e) => e.message, 'message', contains('تعذّر رفع'))));
+      expect(server.rows, isEmpty);
     });
 
-    test('wrong page count is reported, not accepted', () async {
-      final (id, fp) = await published(1);
-      expect(
-          () => remote.verifyPublished(
-              originLessonId: id, level: 1, fingerprint: fp, expectedPages: 5),
-          throwsA(isA<RemoteException>()
-              .having((e) => e.message, 'message', contains('بدل 5'))));
-    });
-
-    test('a fingerprint that differs from the server copy is reported',
+    test('a photo the server silently lost is caught before success',
         () async {
-      final (id, _) = await published(1);
+      final id = await publishedLesson(1);
+      final out = await TeacherPackageService(teacherRepo).exportLesson(id);
+      final split = LessonRemoteService.splitPackage(out.json);
+      server.silentlyDrop.add(split.files.last.path);
       expect(
-          () => remote.verifyPublished(
-              originLessonId: id,
-              level: 1,
-              fingerprint: 'other',
-              expectedPages: 2),
-          throwsA(isA<RemoteException>()));
+          () => remote.publishLesson(
+              password: 'secret-pass', packageJson: out.json),
+          throwsA(isA<RemoteException>()
+              .having((e) => e.message, 'message', contains('مفقود'))));
+      expect(server.rows, isEmpty);
     });
 
+    test('offline during upload is an error, not success', () async {
+      final id = await publishedLesson(1);
+      server.offline = true;
+      expect(() => publish(id), throwsA(isA<RemoteException>()));
+    });
+
+    test('an old server function is detected with a clear message', () async {
+      final id = await publishedLesson(1);
+      server.functionVersion = 1;
+      expect(
+          () => publish(id),
+          throwsA(isA<RemoteException>()
+              .having((e) => e.message, 'message', contains('قديمة'))));
+    });
+
+    test('student download retries a flaky photo and still completes',
+        () async {
+      final id = await publishedLesson(1);
+      await publish(id);
+      server.flakyGetOnce.add(photoPathsOf(id).first);
+      final report = await LessonSyncService(remote, studentRepo).syncLevel(1);
+      expect(report.added, 1);
+      expect(report.failed, 0);
+    });
+
+    test('a missing photo means the lesson is NOT saved on the student phone',
+        () async {
+      final id = await publishedLesson(1);
+      await publish(id);
+      server.storage.remove(photoPathsOf(id).last);
+      final report = await LessonSyncService(remote, studentRepo).syncLevel(1);
+      expect(report.added, 0);
+      expect(report.failed, 1);
+      expect(report.errors.single, contains('الصورة 2 من 2'));
+      expect(await studentRepo.listImported(), isEmpty);
+    });
+
+    test('a damaged photo (same size, other bytes) is detected', () async {
+      final id = await publishedLesson(1);
+      await publish(id);
+      final p = photoPathsOf(id).first;
+      server.storage[p] = server.storage[p]!.map((b) => b ^ 0xFF).toList();
+      final report = await LessonSyncService(remote, studentRepo).syncLevel(1);
+      expect(report.failed, 1);
+      expect(await studentRepo.listImported(), isEmpty);
+    });
+
+    test('after a failure, the next sync completes once the file is back',
+        () async {
+      final id = await publishedLesson(1);
+      await publish(id);
+      final p = photoPathsOf(id).last;
+      final saved = server.storage.remove(p)!;
+      final sync = LessonSyncService(remote, studentRepo);
+      expect((await sync.syncLevel(1)).failed, 1);
+      server.storage[p] = saved;
+      final again = await sync.syncLevel(1);
+      expect(again.added, 1);
+      expect(await studentRepo.listImported(), hasLength(1));
+    });
+
+    test('unpublish removes the photos from storage too', () async {
+      final id = await publishedLesson(1);
+      await publish(id);
+      await remote.unpublish(password: 'secret-pass', originLessonId: id);
+      expect(server.storage, isEmpty);
+    });
+  });
+
+  group('proof of delivery', () {
     test('student sync reports how many pages (photos) arrived', () async {
       await publish(await publishedLesson(3));
       final report = await LessonSyncService(remote, studentRepo).syncLevel(3);
@@ -343,6 +475,15 @@ void main() {
       final lines = await remote.diagnose(1);
       expect(lines, hasLength(1));
       expect(lines.single, startsWith('✗'));
+    });
+
+    test('connection check names a missing photo', () async {
+      final id = await publishedLesson(1);
+      await publish(id);
+      server.storage.remove(photoPathsOf(id).first);
+      final lines = await remote.diagnose(1);
+      expect(lines.last, startsWith('✗'));
+      expect(lines.last, contains('الصورة 1'));
     });
   });
 

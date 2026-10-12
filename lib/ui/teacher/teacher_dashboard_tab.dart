@@ -83,7 +83,7 @@ class TeacherDashboardTab extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         const InfoBox(
-          'ما تنشره يظهر عند التلميذ بشارة «$kTeacherBadge»، ولا يغيّر المنهج '
+          'ما تنشره يظهر عند التلميذ علامة «$kTeacherBadge»، ولا يغيّر المنهج '
           'الرسمي ولا المعاملات.',
           icon: Icons.shield_outlined,
         ),

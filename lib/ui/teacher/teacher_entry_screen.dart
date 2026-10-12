@@ -117,10 +117,10 @@ class _TeacherEntryScreenState extends State<TeacherEntryScreen> {
         showSnack(
             context,
             _hasPin
-                ? 'أدخل رمز PIN.'
+                ? 'أدخل الرمز السري.'
                 : 'الرمز يجب أن يكون ${TeacherSession.minPinLength} أرقام على الأقل.');
       case EntryResult.pinWrong:
-        showSnack(context, 'رمز PIN غير صحيح.');
+        showSnack(context, 'الرمز السري غير صحيح.');
     }
   }
 
@@ -179,7 +179,7 @@ class _TeacherEntryScreenState extends State<TeacherEntryScreen> {
                   obscureText: true,
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(
-                    labelText: 'رمز PIN',
+                    labelText: 'الرمز السري',
                     prefixIcon: Icon(Icons.lock_outline),
                   ),
                 )
@@ -189,7 +189,7 @@ class _TeacherEntryScreenState extends State<TeacherEntryScreen> {
                   obscureText: true,
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(
-                    labelText: 'رمز PIN (اختياري)',
+                    labelText: 'الرمز السري (اختياري)',
                     prefixIcon: Icon(Icons.lock_outline),
                   ),
                 ),

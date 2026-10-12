@@ -1,9 +1,16 @@
-// مرافق التلميذ · دالة نشر دروس الأستاذ (Supabase Edge Function).
+// مرافق التلميذ · دالة نشر دروس الأستاذ (Supabase Edge Function) — الإصدار 2.
 //
-// كلمة مرور الأساتذة تُحفظ كسرّ على الخادم (TEACHER_PASSWORD) ولا تظهر في
-// التطبيق ولا في المستودع. الكتابة (نشر / سحب) لا تتم إلا بها. القراءة عامة.
+// كلمة مرور الأساتذة سرّ على الخادم (TEACHER_PASSWORD) ولا تظهر في التطبيق
+// ولا في المستودع. الكتابة لا تتم إلا بها. القراءة عامة.
 //
-// الإجراءات: verify | publish | unpublish
+// الإجراءات:
+//   verify    : فحص كلمة المرور.
+//   putFile   : رفع ملف واحد (صورة صفحة أو مرفق) إلى lesson-files.
+//   commit    : بعد رفع كل الملفات: تتحقق الدالة أن كل ملف موجود بحجمه
+//               المعلن، ثم تحفظ ملف الفهرس وسطر الدرس في جدول lessons.
+//   unpublish : سحب الدرس وحذف ملفاته.
+//
+// كل صورة ملف مستقل: لا طلب واحد ضخم، وتُعاد المحاولة لكل ملف على حدة.
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const CORS = {
@@ -13,8 +20,12 @@ const CORS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const MAX_PACKAGE_CHARS = 24 * 1024 * 1024;
+const BUCKET = "lesson-files";
 const FORMAT = "marafiq.teacher-lesson";
+const MAX_FILE_BYTES = 8 * 1024 * 1024; // لكل ملف بعد فكّ الترميز
+const MAX_FILES = 80;
+const PATH_RE = /^lessons\/([A-Za-z0-9_-]{8,64})\/v([0-9]{1,6})\/([A-Za-z0-9._-]{1,80})$/;
+const MIME_RE = /^[a-z0-9][a-z0-9.+-]*\/[a-z0-9][a-z0-9.+-]*$/;
 
 function reply(status: number, body: Record<string, unknown>) {
   return new Response(JSON.stringify(body), {
@@ -30,6 +41,13 @@ function safeEqual(a: string, b: string): boolean {
   const n = Math.max(ea.length, eb.length);
   for (let i = 0; i < n; i++) diff |= (ea[i] ?? 0) ^ (eb[i] ?? 0);
   return diff === 0;
+}
+
+function decodeBase64(b64: string): Uint8Array {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
 }
 
 // إبطاء المحاولات الخاطئة (حماية بسيطة من التخمين، ليست حماية كاملة).
@@ -68,7 +86,7 @@ Deno.serve(async (req) => {
   }
 
   const action = body.action;
-  if (action === "verify") return reply(200, { ok: true });
+  if (action === "verify") return reply(200, { ok: true, version: 2 });
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -76,42 +94,122 @@ Deno.serve(async (req) => {
     { auth: { persistSession: false } },
   );
 
-  if (action === "publish") {
+  // ------------------------------------------------------------ putFile
+  if (action === "putFile") {
+    const path = body.path;
+    const mime = body.mimeType;
+    const data = body.data;
+    if (typeof path !== "string" || !PATH_RE.test(path)) {
+      return reply(400, { message: "مسار الملف غير صالح." });
+    }
+    if (typeof mime !== "string" || !MIME_RE.test(mime)) {
+      return reply(400, { message: "نوع الملف غير صالح." });
+    }
+    if (typeof data !== "string" || data.length === 0) {
+      return reply(400, { message: "محتوى الملف فارغ." });
+    }
+    let bytes: Uint8Array;
+    try {
+      bytes = decodeBase64(data);
+    } catch {
+      return reply(400, { message: "ترميز الملف غير صالح." });
+    }
+    if (bytes.length === 0 || bytes.length > MAX_FILE_BYTES) {
+      return reply(400, {
+        message: `حجم الملف ${bytes.length} بايت خارج الحد المسموح (${MAX_FILE_BYTES}).`,
+      });
+    }
+    const up = await supabase.storage.from(BUCKET).upload(path, bytes, {
+      upsert: true,
+      contentType: mime,
+    });
+    if (up.error) {
+      return reply(500, { message: `تعذّر حفظ الملف: ${up.error.message}` });
+    }
+    return reply(200, { ok: true, size: bytes.length });
+  }
+
+  // ------------------------------------------------------------- commit
+  if (action === "commit") {
     const l = body.lesson ?? {};
-    const pkg = body.package;
+    const manifestText = body.manifest;
     const level = Number(l.internalLevel);
     const version = Number(l.versionNumber);
     if (
-      typeof l.originLessonId !== "string" || l.originLessonId.length < 8 ||
-      !/^[A-Za-z0-9_-]+$/.test(l.originLessonId) ||
+      typeof l.originLessonId !== "string" ||
+      !/^[A-Za-z0-9_-]{8,64}$/.test(l.originLessonId) ||
       ![1, 2, 3].includes(level) || !Number.isInteger(version) || version < 1 ||
-      typeof pkg !== "string" || pkg.length === 0 || pkg.length > MAX_PACKAGE_CHARS ||
+      typeof manifestText !== "string" || manifestText.length === 0 ||
+      manifestText.length > 1024 * 1024 ||
       typeof l.fingerprint !== "string" || l.fingerprint.length === 0
     ) {
       return reply(400, { message: "بيانات الدرس ناقصة أو غير صالحة." });
     }
-    let parsed: any;
+    let m: any;
     try {
-      parsed = JSON.parse(pkg);
+      m = JSON.parse(manifestText);
     } catch {
-      return reply(400, { message: "ملف الدرس غير صالح." });
+      return reply(400, { message: "فهرس الدرس غير صالح." });
     }
     if (
-      parsed?.format !== FORMAT || parsed?.fingerprint !== l.fingerprint ||
-      parsed?.lesson?.originLessonId !== l.originLessonId ||
-      parsed?.lesson?.versionNumber !== version ||
-      parsed?.lesson?.internalLevel !== level
+      m?.format !== FORMAT || m?.fingerprint !== l.fingerprint ||
+      m?.lesson?.originLessonId !== l.originLessonId ||
+      m?.lesson?.versionNumber !== version ||
+      m?.lesson?.internalLevel !== level ||
+      !Array.isArray(m?.pages) || m.pages.length === 0 ||
+      !Array.isArray(m?.attachments)
     ) {
-      return reply(400, { message: "بيانات الدرس لا تطابق ملفه." });
+      return reply(400, { message: "بيانات الدرس لا تطابق فهرسه." });
+    }
+    const folder = `lessons/${l.originLessonId}/v${version}`;
+    const wanted = new Map<string, number>();
+    for (const f of [...m.pages, ...m.attachments]) {
+      if (
+        typeof f?.path !== "string" || !f.path.startsWith(`${folder}/`) ||
+        !PATH_RE.test(f.path) || !Number.isInteger(f.size) || f.size <= 0 ||
+        typeof f.sha256 !== "string"
+      ) {
+        return reply(400, { message: "فهرس الدرس يحوي مسارًا غير صالح." });
+      }
+      wanted.set(f.path.substring(folder.length + 1), f.size);
+    }
+    if (wanted.size > MAX_FILES) {
+      return reply(400, { message: "عدد ملفات الدرس كبير جدًا." });
     }
 
-    const path = `packages/${l.originLessonId}-v${version}.json`;
-    const up = await supabase.storage.from("lesson-files").upload(
-      path,
-      new Blob([pkg], { type: "application/json" }),
+    // تحقّق: كل ملف موجود على التخزين وبالحجم المعلن.
+    const listed = await supabase.storage.from(BUCKET).list(folder, {
+      limit: 1000,
+    });
+    if (listed.error) {
+      return reply(500, { message: `تعذّر فحص الملفات: ${listed.error.message}` });
+    }
+    const present = new Map<string, number>();
+    for (const o of listed.data ?? []) {
+      present.set(o.name, Number((o as any).metadata?.size ?? -1));
+    }
+    const bad: string[] = [];
+    for (const [name, size] of wanted) {
+      const got = present.get(name);
+      if (got === undefined) bad.push(`${name} (مفقود)`);
+      else if (got !== size) bad.push(`${name} (حجمه ${got} بدل ${size})`);
+    }
+    if (bad.length > 0) {
+      return reply(409, {
+        message: `ملفات ناقصة أو غير مكتملة على الخادم: ${bad.join("، ")}`,
+        missing: bad,
+      });
+    }
+
+    const manifestPath = `${folder}/manifest.json`;
+    const upM = await supabase.storage.from(BUCKET).upload(
+      manifestPath,
+      new Blob([manifestText], { type: "application/json" }),
       { upsert: true, contentType: "application/json" },
     );
-    if (up.error) return reply(500, { message: `تعذّر حفظ الملف: ${up.error.message}` });
+    if (upM.error) {
+      return reply(500, { message: `تعذّر حفظ الفهرس: ${upM.error.message}` });
+    }
 
     const prev = await supabase.from("lessons").select("package_path")
       .eq("origin_lesson_id", l.originLessonId).maybeSingle();
@@ -124,32 +222,57 @@ Deno.serve(async (req) => {
       subject_name: String(l.subjectName ?? ""),
       teacher_name: String(l.teacherName ?? ""),
       fingerprint: l.fingerprint,
-      package_path: path,
+      package_path: manifestPath,
       updated_at: new Date().toISOString(),
     });
-    if (row.error) return reply(500, { message: `تعذّر حفظ البيانات: ${row.error.message}` });
-
-    const old = prev.data?.package_path;
-    if (old && old !== path) {
-      await supabase.storage.from("lesson-files").remove([old]);
+    if (row.error) {
+      return reply(500, { message: `تعذّر حفظ بيانات الدرس: ${row.error.message}` });
     }
-    return reply(200, { ok: true });
+
+    // تنظيف: ملفات زائدة في المجلد نفسه، ومجلد الإصدار السابق.
+    const extras = [...present.keys()]
+      .filter((n) => !wanted.has(n) && n !== "manifest.json")
+      .map((n) => `${folder}/${n}`);
+    if (extras.length > 0) await supabase.storage.from(BUCKET).remove(extras);
+    const old = prev.data?.package_path as string | undefined;
+    if (old && !old.startsWith(`${folder}/`)) {
+      const oldFolder = old.substring(0, old.lastIndexOf("/"));
+      if (oldFolder.startsWith("lessons/")) {
+        const oldList = await supabase.storage.from(BUCKET).list(oldFolder, {
+          limit: 1000,
+        });
+        const names = (oldList.data ?? []).map((o) => `${oldFolder}/${o.name}`);
+        if (names.length > 0) await supabase.storage.from(BUCKET).remove(names);
+      } else {
+        await supabase.storage.from(BUCKET).remove([old]);
+      }
+    }
+    return reply(200, { ok: true, files: wanted.size });
   }
 
+  // ---------------------------------------------------------- unpublish
   if (action === "unpublish") {
     const id = body.originLessonId;
-    if (typeof id !== "string" || !/^[A-Za-z0-9_-]+$/.test(id)) {
+    if (typeof id !== "string" || !/^[A-Za-z0-9_-]{8,64}$/.test(id)) {
       return reply(400, { message: "معرّف الدرس غير صالح." });
     }
     const prev = await supabase.from("lessons").select("package_path")
       .eq("origin_lesson_id", id).maybeSingle();
     const del = await supabase.from("lessons").delete().eq("origin_lesson_id", id);
     if (del.error) return reply(500, { message: `تعذّر السحب: ${del.error.message}` });
-    if (prev.data?.package_path) {
-      await supabase.storage.from("lesson-files").remove([prev.data.package_path]);
+    const path = prev.data?.package_path as string | undefined;
+    if (path) {
+      const folder = path.substring(0, path.lastIndexOf("/"));
+      if (folder.startsWith("lessons/")) {
+        const l = await supabase.storage.from(BUCKET).list(folder, { limit: 1000 });
+        const names = (l.data ?? []).map((o) => `${folder}/${o.name}`);
+        if (names.length > 0) await supabase.storage.from(BUCKET).remove(names);
+      } else {
+        await supabase.storage.from(BUCKET).remove([path]);
+      }
     }
     return reply(200, { ok: true });
   }
 
-  return reply(400, { message: "إجراء غير معروف." });
+  return reply(400, { message: "إجراء غير معروف. حدّث دالة الخادم بالنص الجديد." });
 });

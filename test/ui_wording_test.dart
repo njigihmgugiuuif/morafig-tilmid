@@ -21,6 +21,14 @@ void main() {
     'بصمة',
     'البصمة',
     'PWA',
+    'عقدة',
+    'العقدة',
+    'خانة',
+    'الإصدار',
+    'إصدار',
+    'قرار مفتوح',
+    'تصور',
+    'ملف للتلميذ',
   ];
 
   test('no screen text uses the technical words the school asked to drop', () {

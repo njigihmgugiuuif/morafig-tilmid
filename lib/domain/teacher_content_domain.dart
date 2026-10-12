@@ -142,23 +142,23 @@ List<LessonIssue> validateNodes(List<NodeDraft> nodes, int pageCount) {
   final names = <String>{};
   for (final n in nodes) {
     if (!keys.add(n.key)) {
-      issues.add(LessonIssue('node_key_duplicate', 'عقدة مكررة داخليًا: ${n.key}'));
+      issues.add(LessonIssue('node_key_duplicate', 'محور مكرر داخليًا: ${n.key}'));
     }
     final name = n.name.trim();
     if (name.isEmpty) {
-      issues.add(const LessonIssue('node_name_required', 'اسم العقدة مطلوب.'));
+      issues.add(const LessonIssue('node_name_required', 'اسم المحور مطلوب.'));
     } else if (!names.add(name)) {
-      issues.add(LessonIssue('node_name_duplicate', 'اسم العقدة مكرر: $name'));
+      issues.add(LessonIssue('node_name_duplicate', 'اسم المحور مكرر: $name'));
     }
     final from = n.pageFrom;
     final to = n.pageTo;
     if ((from == null) != (to == null)) {
       issues.add(LessonIssue('node_range_incomplete',
-          'حدّد بداية الصفحات ونهايتها معًا للعقدة «$name».'));
+          'حدّد بداية الصفحات ونهايتها معًا للمحور «$name».'));
     } else if (from != null && to != null) {
       if (from < 1 || to < from || to > pageCount) {
         issues.add(LessonIssue('node_range_invalid',
-            'نطاق صفحات العقدة «$name» خارج صفحات الدرس.'));
+            'نطاق صفحات المحور «$name» خارج صفحات الدرس.'));
       }
     }
   }
@@ -168,10 +168,10 @@ List<LessonIssue> validateNodes(List<NodeDraft> nodes, int pageCount) {
     if (r == null) continue;
     if (r == n.key) {
       issues.add(LessonIssue('node_requires_self',
-          'العقدة «${n.name.trim()}» لا تتطلب نفسها.'));
+          'المحور «${n.name.trim()}» لا يتطلب نفسه.'));
     } else if (!byKey.containsKey(r)) {
       issues.add(LessonIssue('node_requires_missing',
-          'العقدة «${n.name.trim()}» تتطلب عقدة غير موجودة في الدرس.'));
+          'المحور «${n.name.trim()}» يتطلب محورًا غير موجود في الدرس.'));
     }
   }
   // Cycle check: each node has at most ONE requirement, so following the
@@ -184,7 +184,7 @@ List<LessonIssue> validateNodes(List<NodeDraft> nodes, int pageCount) {
     while (cur != null && byKey.containsKey(cur)) {
       if (!seen.add(cur)) {
         issues.add(LessonIssue('node_requires_cycle',
-            'تسلسل المتطلبات حول العقدة «${n.name.trim()}» دائري.'));
+            'تسلسل المتطلبات حول المحور «${n.name.trim()}» دائري.'));
         break;
       }
       cur = byKey[cur]!.requiresKey;
