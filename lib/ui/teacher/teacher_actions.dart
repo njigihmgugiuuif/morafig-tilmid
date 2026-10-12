@@ -39,7 +39,7 @@ Future<void> exportLessonPackage(BuildContext context, String lessonId) async {
         context,
         saved
             ? 'حُفظت نسخة الدرس: ${out.fileName}'
-            : 'نُسخ الدرس. الصقه في ملف أو أرسله للتلميذ.');
+            : 'نُسخ نص الدرس. الصقه في رسالة وأرسله للتلميذ.');
   } catch (e) {
     if (!context.mounted) return;
     showRefusal(context, e);
@@ -79,24 +79,26 @@ Future<String> _sendOne(
 
 /// Sends a PUBLISHED lesson to the students of its level. Nothing is said to
 /// have arrived unless the lesson was read back from the server.
-Future<void> publishLessonOnline(BuildContext context, String lessonId) async {
+Future<bool> publishLessonOnline(BuildContext context, String lessonId) async {
   final state = context.read<AppState>();
   if (!canSendToStudents(context)) {
     showSnack(context,
         'الإرسال للتلاميذ يحتاج الدخول بكلمة مرور الأساتذة من رابط لوحة الأستاذ.');
-    return;
+    return false;
   }
   try {
     final msg = await _sendOne(state, teacherRepo(context), lessonId,
         onProgress: (m) {
       if (context.mounted) showSnack(context, m);
     });
-    if (!context.mounted) return;
-    showSnack(context, msg);
+    if (context.mounted) showSnack(context, msg);
+    return true;
   } on RemoteException catch (e) {
     if (context.mounted) showSnack(context, e.message);
+    return false;
   } catch (e) {
     if (context.mounted) showRefusal(context, e);
+    return false;
   }
 }
 

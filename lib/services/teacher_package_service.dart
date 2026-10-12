@@ -283,19 +283,19 @@ class TeacherPackageService {
     } on FormatException {
       return const PackagePreview(
           kind: PackageKind.corrupt,
-          message: 'تعذّرت قراءة الملف. بياناتك لم تُمَس.');
+          message: 'تعذّرت قراءة الدرس. بياناتك لم تُمَس.');
     }
     if (decoded is! Map<String, dynamic> ||
         decoded['format'] != kPackageFormat) {
       return const PackagePreview(
           kind: PackageKind.corrupt,
-          message: 'هذا الملف ليس ملف دروس من أستاذ. بياناتك لم تُمَس.');
+          message: 'هذا ليس درسًا من أستاذ. بياناتك لم تُمَس.');
     }
     final version = decoded['formatVersion'];
     if (version is! int || version != kPackageFormatVersion) {
       return PackagePreview(
           kind: PackageKind.unsupported,
-          message: 'صيغة ملف الدروس ($version) غير مدعومة في هذه النسخة.');
+          message: 'صيغة هذا الدرس ($version) غير مدعومة في هذه النسخة.');
     }
 
     final PackageContent content;
@@ -304,7 +304,7 @@ class TeacherPackageService {
     } on FormatException catch (e) {
       return PackagePreview(
           kind: PackageKind.corrupt,
-          message: 'ملف الدروس تالف: ${e.message}. بياناتك لم تُمَس.');
+          message: 'هذا الدرس تالف: ${e.message}. بياناتك لم تُمَس.');
     }
 
     final fingerprint = fingerprintOf(content);
@@ -312,7 +312,7 @@ class TeacherPackageService {
     if (stated is! String || stated != fingerprint) {
       return const PackagePreview(
           kind: PackageKind.corrupt,
-          message: 'هذا الملف تالف أو عُدّل بعد إنشائه. '
+          message: 'هذا الدرس تالف أو عُدّل بعد إنشائه. '
               'بياناتك لم تُمَس.');
     }
 
@@ -333,7 +333,7 @@ class TeacherPackageService {
       if (content.versionNumber > same.versionNumber) {
         return PackagePreview(
           kind: PackageKind.newerVersion,
-          message: 'عندك النسخة ${same.versionNumber}، وهذا الملف النسخة '
+          message: 'عندك النسخة ${same.versionNumber}، وهذا الدرس نسخته '
               '${content.versionNumber}. تحديثها يستبدل محتوى الدرس فقط.',
           content: content,
           fingerprint: fingerprint,
@@ -345,7 +345,7 @@ class TeacherPackageService {
         return PackagePreview(
           kind: PackageKind.olderVersion,
           message: 'عندك النسخة ${same.versionNumber} وهي أحدث من هذا '
-              'الملف (${content.versionNumber}). لم يُغيَّر شيء.',
+              'الدرس (${content.versionNumber}). لم يُغيَّر شيء.',
           content: content,
           fingerprint: fingerprint,
           existingVersion: same.versionNumber,
@@ -355,7 +355,7 @@ class TeacherPackageService {
       return PackagePreview(
         kind: PackageKind.sameVersionConflict,
         message: 'عندك الدرس نفسه بالنسخة نفسها لكن بمحتوى مختلف. '
-            'رُفض الملف ولم يُغيَّر شيء.',
+            'رُفض الدرس ولم يُغيَّر شيء.',
         content: content,
         fingerprint: fingerprint,
         existingVersion: same.versionNumber,
@@ -438,7 +438,7 @@ class TeacherPackageService {
 
     final rawPages = m['pages'];
     if (rawPages is! List || rawPages.isEmpty) {
-      throw const FormatException('لا صفحات في ملف الدروس');
+      throw const FormatException('لا صفحات في الدرس');
     }
     final pages = <PackagePage>[];
     for (var i = 0; i < rawPages.length; i++) {

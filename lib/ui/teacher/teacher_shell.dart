@@ -3,13 +3,11 @@ import 'package:flutter/material.dart';
 import '../design/tokens.dart';
 import 'lesson_wizard_screen.dart';
 import 'teacher_account_tab.dart';
-import 'teacher_dashboard_tab.dart';
 import 'teacher_lessons_tab.dart';
-import 'teacher_review_tab.dart';
 
-/// Teacher shell: «لوحتي / الدروس / المراجعة / الحساب» (D-2 T02–T05).
+/// Teacher shell: «دروسي / حسابي». Writing a lesson goes straight to sending it.
 ///
-/// Back (D-2 X01): from a tab other than «لوحتي» → «لوحتي»; from «لوحتي» →
+/// Back: from «حسابي» → «دروسي»; from «دروسي» →
 /// leaves the shell and returns to the teacher entry screen, NOT straight
 /// to the student app.
 class TeacherShell extends StatefulWidget {
@@ -37,20 +35,9 @@ class _TeacherShellState extends State<TeacherShell> {
   @override
   Widget build(BuildContext context) {
     final tabs = <Widget>[
-      TeacherDashboardTab(
-        rev: _rev,
-        onNewLesson: () => _openWizard(),
-        onOpenLesson: (id) => _openWizard(lessonId: id),
-        onShowAll: () => setState(() => _index = 1),
-      ),
       TeacherLessonsTab(
         rev: _rev,
         onNewLesson: () => _openWizard(),
-        onOpenLesson: (id) => _openWizard(lessonId: id),
-        onChanged: _refresh,
-      ),
-      TeacherReviewTab(
-        rev: _rev,
         onOpenLesson: (id) => _openWizard(lessonId: id),
         onChanged: _refresh,
       ),
@@ -69,12 +56,7 @@ class _TeacherShellState extends State<TeacherShell> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: Text(const [
-            'لوحتي',
-            'الدروس',
-            'المراجعة',
-            'الحساب والصلاحيات'
-          ][_index]),
+          title: Text(const ['دروسي', 'حسابي'][_index]),
           automaticallyImplyLeading: false,
           actions: const [
             Padding(
@@ -97,21 +79,13 @@ class _TeacherShellState extends State<TeacherShell> {
           onDestinationSelected: (i) => setState(() => _index = i),
           destinations: const [
             NavigationDestination(
-                icon: Icon(Icons.home_outlined),
-                selectedIcon: Icon(Icons.home),
-                label: 'لوحتي'),
-            NavigationDestination(
                 icon: Icon(Icons.menu_book_outlined),
                 selectedIcon: Icon(Icons.menu_book),
-                label: 'الدروس'),
-            NavigationDestination(
-                icon: Icon(Icons.fact_check_outlined),
-                selectedIcon: Icon(Icons.fact_check),
-                label: 'المراجعة'),
+                label: 'دروسي'),
             NavigationDestination(
                 icon: Icon(Icons.person_outline),
                 selectedIcon: Icon(Icons.person),
-                label: 'الحساب'),
+                label: 'حسابي'),
           ],
         ),
       ),

@@ -3,12 +3,11 @@ import 'package:provider/provider.dart';
 
 import '../../domain/teacher_content_domain.dart';
 import '../../repositories/teacher_content_repository.dart';
-import '../../services/lesson_remote_service.dart';
+import '../../services/lesson_auto_sync.dart';
 import '../../services/teacher_session.dart';
 import '../state/app_state.dart';
 import '../teacher/teacher_widgets.dart';
 import '../widgets/async_section.dart';
-import 'import_screen.dart';
 import 'lesson_viewer_screen.dart';
 import 'manage_imported_screen.dart';
 import '../design/page.dart';
@@ -36,14 +35,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
   final _search = TextEditingController();
   int? _level;
 
-  // Online sync (the student's level path, kept on this device).
-  static const _levelKey = 'student_lesson_path';
+  // The student's school year (kept on this device). New lessons arrive by
+  // themselves (see LessonAutoSync); there is no update button.
   final KeyValueStore _prefs = SharedPrefsKeyValueStore();
   int? _myPath;
-  bool _syncing = false;
-  String? _syncMessage;
-  List<String> _diagnosis = const [];
-  bool _diagnosing = false;
 
   @override
   void initState() {
@@ -52,94 +47,24 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   Future<void> _loadPath() async {
-    final raw = await _prefs.getString(_levelKey);
+    final raw = await _prefs.getString(kStudentLessonLevelKey);
     final v = int.tryParse(raw ?? '');
     if (!mounted) return;
     setState(() => _myPath = isValidInternalLevel(v) ? v : null);
-    if (_myPath != null && context.read<AppState>().lessonRemote.configured) {
-      _sync(silent: true);
-    }
+    context.read<AppState>().autoSync.trigger();
   }
 
   Future<void> _choosePath(int level) async {
-    await _prefs.setString(_levelKey, '$level');
+    await _prefs.setString(kStudentLessonLevelKey, '$level');
     if (!mounted) return;
     setState(() => _myPath = level);
-    _sync();
-  }
-
-  Future<void> _sync({bool silent = false}) async {
-    final state = context.read<AppState>();
-    final level = _myPath;
-    if (level == null || _syncing) return;
-    if (!state.lessonRemote.configured) {
-      if (!silent) {
-        setState(() => _syncMessage =
-            'التحديث عبر الإنترنت غير مفعّل بعد. يمكنك إضافة ملف دروس من أستاذك.');
-      }
-      return;
-    }
-    setState(() {
-      _syncing = true;
-      if (!silent) _syncMessage = null;
-    });
-    try {
-      final report = await LessonSyncService(
-              state.lessonRemote, state.teacherRepository)
-          .syncLevel(level);
-      if (!mounted) return;
-      setState(() {
-        _syncMessage = report.errors.isEmpty
-            ? 'اكتمل التحديث: ${report.summary}'
-            : 'اكتمل جزئيًا: ${report.summary}\n${report.errors.join('\n')}';
-      });
-    } on RemoteException catch (e) {
-      // Offline or server problem: the lessons already on the device stay.
-      // A silent (automatic) run stays quiet only for plain connectivity
-      // problems; any other server problem is shown so it is never hidden.
-      final offline = e.message.contains('تعذّر الاتصال') ||
-          e.message.contains('انتهت مهلة');
-      if (mounted && (!silent || !offline)) {
-        setState(() => _syncMessage = e.message);
-      }
-    } finally {
-      if (mounted) setState(() => _syncing = false);
-    }
-  }
-
-  Future<void> _diagnose() async {
-    final level = _myPath;
-    if (level == null || _diagnosing) return;
-    final remote = context.read<AppState>().lessonRemote;
-    setState(() {
-      _diagnosing = true;
-      _diagnosis = const [];
-    });
-    List<String> lines;
-    try {
-      lines = await remote.diagnose(level);
-    } catch (e) {
-      lines = ['✗ فشل الفحص: $e'];
-    }
-    if (mounted) {
-      setState(() {
-        _diagnosis = lines;
-        _diagnosing = false;
-      });
-    }
+    context.read<AppState>().autoSync.trigger(force: true);
   }
 
   @override
   void dispose() {
     _search.dispose();
     super.dispose();
-  }
-
-  Future<void> _openImport() async {
-    await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(builder: (_) => const ImportScreen()),
-    );
-    if (mounted) setState(() {});
   }
 
   Future<void> _openManage() async {
@@ -152,6 +77,13 @@ class _LibraryScreenState extends State<LibraryScreen> {
   @override
   Widget build(BuildContext context) {
     final repo = context.read<AppState>().teacherRepository;
+    return ListenableBuilder(
+      listenable: context.read<AppState>().autoSync.revisionListenable,
+      builder: (context, _) => _buildPage(context, repo),
+    );
+  }
+
+  Widget _buildPage(BuildContext context, TeacherContentRepository repo) {
     return MqPage(
       title: 'مكتبة الدروس',
       actions: [
@@ -159,58 +91,36 @@ class _LibraryScreenState extends State<LibraryScreen> {
             icon: Icons.storage_outlined,
             label: 'دروسي على هذا الجهاز',
             onTap: _openManage),
-        MqIconButton(
-            icon: Icons.download_outlined,
-            label: 'إضافة ملف دروس',
-            onTap: _openImport),
       ],
       children: [
             MqCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text('مسار دروسي', style: MqType.h3.copyWith(color: context.mq.ink)),
+                  Text('في أي سنة أنت؟',
+                      style: MqType.h2.copyWith(color: context.mq.ink)),
                   const SizedBox(height: 4),
                   Text(
-                      'اختر مستواك فتصلك دروس أساتذتك لهذا المستوى. بعد التحديث '
+                      'اختر سنتك الدراسية فتصلك دروس أساتذتك لها تلقائيًا. '
                       'تُحفظ الدروس وصورها على جهازك وتُفتح دون إنترنت.',
-                      style: MqType.caption.copyWith(color: context.mq.ink2)),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6,
-                    children: [
-                      for (final lv in kInternalLevels)
-                        ChoiceChip(
-                          label: Text(internalLevelLabel(lv)),
-                          selected: _myPath == lv,
-                          onSelected: (_) => _choosePath(lv),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  MqButton(
-                    label: _syncing ? 'جارٍ التحديث…' : 'حدّث الدروس من الإنترنت',
-                    icon: Icons.sync,
-                    block: true,
-                    onPressed: (_syncing || _myPath == null) ? null : _sync,
-                  ),
-                  TextButton.icon(
-                    onPressed:
-                        (_diagnosing || _myPath == null) ? null : _diagnose,
-                    icon: const Icon(Icons.network_check),
-                    label: Text(_diagnosing ? 'جارٍ الفحص…' : 'افحص الاتصال'),
-                  ),
-                  for (final line in _diagnosis)
+                      style: MqType.small.copyWith(color: context.mq.ink2)),
+                  const SizedBox(height: 12),
+                  for (final lv in kInternalLevels)
                     Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Text(line,
-                          style: MqType.small.copyWith(color: context.mq.ink)),
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _LevelChoice(
+                        label: internalLevelLabel(lv),
+                        selected: _myPath == lv,
+                        onTap: () => _choosePath(lv),
+                      ),
                     ),
-                  if (_syncMessage != null) ...[
-                    const SizedBox(height: 6),
-                    Text(_syncMessage!,
-                        style: MqType.small.copyWith(color: context.mq.ink)),
-                  ],
+                  if (_myPath == null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text('اضغط على سنتك للبدء.',
+                          style: MqType.small.copyWith(color: context.mq.accentInk)),
+                    ),
+                  _SyncStatus(sync: context.read<AppState>().autoSync, hasLevel: _myPath != null),
                 ],
               ),
             ),
@@ -225,6 +135,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
               ),
             ),
             const SizedBox(height: 8),
+            Text('اعرض الدروس المحفوظة عندي:',
+                style: MqType.small.copyWith(color: context.mq.ink2)),
+            const SizedBox(height: 6),
             Wrap(
               spacing: 6,
               children: [
@@ -247,7 +160,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   repo.listImported(level: _level, query: _search.text),
               isEmpty: (d) => d.isEmpty,
               emptyMessage:
-                  'لا دروس عندك بعد. اختر مستواك واضغط «حدّث الدروس من الإنترنت»، أو اطلب من أستاذك ملف دروس ثم اضغط «إضافة ملف دروس».',
+                  'لا دروس عندك بعد. اختر سنتك الدراسية ثم اضغط «حدّث الدروس من الإنترنت».',
               emptyIcon: Icons.menu_book_outlined,
               builder: (context, items) {
                 final bySubject = <String, List<LessonListItem>>{};
@@ -297,17 +210,110 @@ class _LibraryScreenState extends State<LibraryScreen> {
             ),
             const SizedBox(height: 8),
             const InfoBox(
-              'تظهر لك كل دروسك المحفوظة على الجهاز. خيارات المستوى أعلاه للتصفية فقط '
-              'وليست قيدًا على ما يمكنك فتحه.',
+              'تظهر لك كل دروسك المحفوظة على الجهاز. خيارات السنة للعرض فقط '
+              'وليست قيدًا على ما يمكنك فتحه. دروس الأساتذة غير رسمية.',
               icon: Icons.help_outline,
             ),
-            const SizedBox(height: 12),
-            FilledButton.icon(
-              onPressed: _openImport,
-              icon: const Icon(Icons.download),
-              label: const Text('إضافة ملف دروس من أستاذ'),
-            ),
       ],
+    );
+  }
+}
+
+/// A large, clear choice for the student's school year.
+class _LevelChoice extends StatelessWidget {
+  const _LevelChoice(
+      {required this.label, required this.selected, required this.onTap});
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final mq = context.mq;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 64),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: selected ? mq.brandSoft : mq.surface2,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+                color: selected ? mq.brand : mq.line, width: selected ? 2.5 : 1),
+          ),
+          child: Row(
+            children: [
+              Icon(selected ? Icons.check_circle : Icons.circle_outlined,
+                  size: 28, color: selected ? mq.brand : mq.ink3),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(label,
+                    style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: selected ? mq.brandDeep : mq.ink)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Calm one-line status of the automatic update. It only speaks when there is
+/// something worth saying: new lessons arrived, no connection, or a problem.
+class _SyncStatus extends StatelessWidget {
+  const _SyncStatus({required this.sync, required this.hasLevel});
+  final LessonAutoSync sync;
+  final bool hasLevel;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: sync,
+      builder: (context, _) {
+        final mq = context.mq;
+        String text;
+        Color color = mq.ink2;
+        IconData icon = Icons.sync;
+        if (!hasLevel) {
+          text = 'بعد اختيار سنتك تصلك الدروس تلقائيًا، دون أي زر.';
+          icon = Icons.info_outline;
+        } else if (sync.syncing) {
+          text = 'نبحث عن دروس جديدة…';
+        } else if (sync.problem != null) {
+          text = sync.problem!;
+          color = mq.overdue;
+          icon = Icons.error_outline;
+        } else if (sync.offline) {
+          text = 'لا يوجد اتصال الآن. دروسك المحفوظة تُفتح عادة، '
+              'وسنكمل التحديث تلقائيًا عند عودة الإنترنت.';
+          icon = Icons.cloud_off_outlined;
+        } else if (sync.notice != null) {
+          text = sync.notice!;
+          color = mq.ok;
+          icon = Icons.check_circle_outline;
+        } else {
+          text = 'الدروس الجديدة تصلك تلقائيًا عند فتح التطبيق.';
+          icon = Icons.check_circle_outline;
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 18, color: color),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(text, style: MqType.small.copyWith(color: color)),
+            ),
+          ],
+        );
+      },
     );
   }
 }

@@ -29,6 +29,11 @@ void main() {
     'قرار مفتوح',
     'تصور',
     'ملف للتلميذ',
+    'ملف دروس',
+    'ملف الدروس',
+    'مستورد',
+    'تنزيل من تطبيق',
+    'A-2',
   ];
 
   test('no screen text uses the technical words the school asked to drop', () {

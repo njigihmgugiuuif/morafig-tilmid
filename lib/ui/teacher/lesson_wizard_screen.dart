@@ -72,7 +72,6 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
   int _selectedPage = 0;
   final List<_NodeEdit> _nodes = [];
   final List<AttachmentInput> _attachments = [];
-  LessonStatus _targetStatus = LessonStatus.draft;
 
   List<LinkableVersion> _linkable = const [];
 
@@ -114,7 +113,6 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
         _linkedVersionId = l.linkedCurriculumVersionId;
         _savedStatus = LessonStatus.fromDb(l.status);
         _savedVersion = l.versionNumber;
-        _targetStatus = _savedStatus;
         for (final p in agg.pages) {
           _pages.add(_PageDraft(p.bytes, turns: p.quarterTurns));
         }
@@ -395,7 +393,7 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
     if (_busy) return;
     if (!deviceFilesAvailable) {
       showSnack(context,
-          'إرفاق الملفات متاح في نسخة المتصفح فقط حاليًا.');
+          'إرفاق المستندات متاح في نسخة المتصفح فقط حاليًا.');
       return;
     }
     setState(() => _busy = true);
@@ -469,7 +467,6 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
             ? LessonStatus.draft
             : LessonStatus.fromDb(agg.lesson.status);
         _savedVersion = agg?.lesson.versionNumber ?? 1;
-        _targetStatus = _savedStatus;
       });
       showSnack(context, 'حُفظ الدرس: ${_savedStatus.label}.');
       return true;
@@ -485,21 +482,48 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
     }
   }
 
-  Future<void> _export() async {
-    // Only a published lesson can be exported: save with target "published"
-    // first, which itself requires the lesson to be ready (≥ 1 page, valid
-    // fields and nodes).
-    // An unchanged, already-published lesson is exported as it is: saving it
-    // again would needlessly create a new version.
-    final unchangedPublished = !_dirty &&
+  /// The one action of the wizard: save the lesson as published, send it to
+  /// the students, and say it arrived only after it was read back.
+  Future<void> _sendToStudents() async {
+    if (_busy) return;
+    final readiness = readinessForReview(
+      title: _title.text,
+      subjectName: _subject.text,
+      internalLevel: _level,
+      teacherName: _teacher.text,
+      pageCount: _pages.length,
+      nodes: [
+        for (final n in _nodes)
+          NodeDraft(
+              key: n.key,
+              name: n.name,
+              pageFrom: n.from,
+              pageTo: n.to,
+              requiresKey: n.requires),
+      ],
+    );
+    if (readiness.isNotEmpty) {
+      showSnack(context, readiness.first.message);
+      return;
+    }
+    // An unchanged published lesson is sent as it is: saving it again would
+    // only create a needless new version.
+    final unchanged = !_dirty &&
         _lessonId != null &&
         _savedStatus == LessonStatus.published;
-    if (!unchangedPublished) {
+    if (!unchanged) {
       final ok = await _save(LessonStatus.published);
       if (!ok || !mounted) return;
     }
-    final id = _lessonId;
-    if (id != null) await exportLessonPackage(context, id);
+    if (!canSendToStudents(context)) {
+      showSnack(context,
+          'حُفظ الدرس. للإرسال ادخل بكلمة مرور الأساتذة ثم اضغط «إرسال الدرس للتلاميذ».');
+      return;
+    }
+    setState(() => _busy = true);
+    final sent = await publishLessonOnline(context, _lessonId!);
+    if (mounted) setState(() => _busy = false);
+    if (sent && mounted) Navigator.of(context).pop(true);
   }
 
   // ------------------------------------------------------------------ UI
@@ -508,9 +532,8 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
   Widget build(BuildContext context) {
     const titles = [
       'درس جديد',
-      'صفحات الدرس',
-      'محاور الدرس',
-      'المعاينة والنشر',
+      'صور الدرس',
+      'المراجعة والإرسال',
     ];
     return PopScope(
       canPop: false,
@@ -531,7 +554,7 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
           actions: [
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Center(child: Text('${_step + 1} / 4')),
+              child: Center(child: Text('${_step + 1} / 3')),
             ),
           ],
         ),
@@ -544,7 +567,7 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
                       child: Row(
                         children: [
-                          for (var i = 0; i < 4; i++)
+                          for (var i = 0; i < 3; i++)
                             Expanded(
                               child: Container(
                                 height: 4,
@@ -566,7 +589,6 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
                         children: [
                           _stepFields(),
                           _stepPages(),
-                          _stepNodes(),
                           _stepPreview(),
                         ],
                       ),
@@ -606,45 +628,43 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Row(children: [
-          Expanded(child: _field('المادة', _subject)),
-          const SizedBox(width: 10),
-          Expanded(child: _field('الوحدة / الفصل', _unit)),
-        ]),
-        const Text('المستوى', style: TextStyle(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 6),
-        SegmentedButton<int>(
-          emptySelectionAllowed: true,
-          showSelectedIcon: false,
-          segments: [
-            for (final lv in kInternalLevels)
-              ButtonSegment<int>(value: lv, label: Text(internalLevelLabel(lv))),
-          ],
-          selected: _level == null ? <int>{} : <int>{_level!},
-          onSelectionChanged: (s) {
-            setState(() {
-              _level = s.isEmpty ? null : s.first;
-              _dirty = true;
-            });
-          },
-        ),
-        Padding(
-          padding: const EdgeInsets.only(top: 4, bottom: 12),
-          child: Text('اختيارك هنا يحدد لأي تلاميذ يصل الدرس.',
-              style: TextStyle(fontSize: 12, color: context.mq.ink2)),
-        ),
-        _field('القسم (للتوضيح فقط)', _section, hint: 'مثال: 2 علوم تجريبية'),
-        Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: Text('لا يغيّر المستوى الذي اخترته.',
-              style: TextStyle(fontSize: 12, color: context.mq.ink2)),
-        ),
-        _field('الشعبة / المسار', _track),
+        const Text('لأي سنة هذا الدرس؟',
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 4),
+        Text('يصل الدرس تلقائيًا إلى تلاميذ هذه السنة فقط.',
+            style: TextStyle(fontSize: 12.5, color: context.mq.ink2)),
+        const SizedBox(height: 10),
+        for (final lv in kInternalLevels)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: _BigChoice(
+              label: internalLevelLabel(lv),
+              selected: _level == lv,
+              onTap: () => setState(() {
+                _level = lv;
+                _dirty = true;
+              }),
+            ),
+          ),
+        const SizedBox(height: 8),
+        _field('المادة', _subject, hint: 'مثال: الرياضيات'),
         _field('عنوان الدرس', _title),
         _field('اسم الأستاذ', _teacher),
-        _field('ملاحظات للتلميذ', _notes,
+        _field('ملاحظة للتلميذ (اختيارية)', _notes,
             maxLines: 3, hint: 'اكتب ما تريد أن ينتبه إليه التلميذ'),
-        _nextButton('التالي: صفحات الدرس', _next),
+        Card(
+          child: ExpansionTile(
+            title: const Text('تفاصيل إضافية (اختيارية)'),
+            childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+            children: [
+              _field('الوحدة أو الفصل', _unit),
+              _field('القسم (للتوضيح فقط)', _section,
+                  hint: 'مثال: 2 علوم تجريبية'),
+              _field('الشعبة', _track),
+            ],
+          ),
+        ),
+        _nextButton('التالي: صور الدرس', _next),
       ],
     );
   }
@@ -654,61 +674,14 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('لمن هذا الدرس؟',
-                    style: TextStyle(fontWeight: FontWeight.w700)),
-                const SizedBox(height: 8),
-                Row(children: [
-                  for (final lv in kInternalLevels)
-                    Expanded(
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 3),
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          color: _level == lv
-                              ? context.mq.brandSoft
-                              : context.mq.surface2,
-                          border: Border.all(
-                              color: _level == lv
-                                  ? context.mq.brand
-                                  : Colors.transparent,
-                              width: 2),
-                        ),
-                        child: Column(children: [
-                          Text(internalLevelLabel(lv),
-                              style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  color: _level == lv
-                                      ? context.mq.brand
-                                      : context.mq.ink2)),
-                          Text(_level == lv ? 'مختار' : 'غير مختار',
-                              style: const TextStyle(fontSize: 12)),
-                        ]),
-                      ),
-                    ),
-                ]),
-                const SizedBox(height: 6),
-                Text(
-                    _level == null
-                        ? 'اختر المستوى في الخطوة الأولى.'
-                        : 'الصور تذهب إلى ${internalLevelLabel(_level!)} '
-                            'فقط، ولا تظهر لتلاميذ المستويين الآخرين.',
-                    style: const TextStyle(fontSize: 12.5)),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
+        Text(
+            _level == null
+                ? 'اختر السنة في الخطوة الأولى.'
+                : 'الدرس موجّه لتلاميذ ${internalLevelLabel(_level!)}.',
+            style: TextStyle(fontSize: 12.5, color: context.mq.ink2)),
         if (!deviceFilesAvailable)
           const InfoBox(
-              'التقاط الصور واختيارها من الهاتف متاح في نسخة المتصفح. '
-              '',
+              'التقاط الصور واختيارها من الهاتف متاح في نسخة المتصفح.',
               icon: Icons.warning_amber_rounded),
         const SizedBox(height: 8),
         Row(children: [
@@ -716,7 +689,7 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
             child: FilledButton.icon(
               onPressed: _busy ? null : () => _addImages(capture: true),
               icon: const Icon(Icons.photo_camera_outlined),
-              label: const Text('التقط صفحة'),
+              label: const Text('التقط صورة'),
             ),
           ),
           const SizedBox(width: 8),
@@ -724,7 +697,7 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
             child: OutlinedButton.icon(
               onPressed: _busy ? null : () => _addImages(capture: false),
               icon: const Icon(Icons.photo_library_outlined),
-              label: const Text('من الجهاز'),
+              label: const Text('اختر صورًا من هاتفك'),
             ),
           ),
         ]),
@@ -732,7 +705,7 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
         if (_pages.isEmpty)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 24),
-            child: Center(child: Text('لا صفحات بعد. التقط صفحة أو اخترها من جهازك.')),
+            child: Center(child: Text('لا صور بعد. التقط صورة أو اختر عدة صور من هاتفك.')),
           )
         else
           GridView.builder(
@@ -799,10 +772,6 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
                     tooltip: 'أدِر الصفحة',
                     onPressed: _pages.isEmpty ? null : _rotatePage,
                     icon: const Icon(Icons.rotate_right)),
-                const IconButton(
-                    tooltip: 'القص غير متاح بعد',
-                    onPressed: null,
-                    icon: Icon(Icons.crop)),
                 IconButton(
                     tooltip: 'احذف الصفحة',
                     onPressed: _pages.isEmpty ? null : _deletePage,
@@ -811,7 +780,7 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
             ),
           ),
         ),
-        Text('${_pages.length} صفحات · الحجم ${formatBytes(total)}',
+        Text('${_pages.length} صورة · الحجم ${formatBytes(total)}',
             style: const TextStyle(fontSize: 12.5)),
         const SizedBox(height: 4),
         const Align(
@@ -820,15 +789,13 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
               label: Text('يُفضَّل ألا يزيد الدرس عن 20 ميغابايت',
                   style: TextStyle(fontSize: 11.5))),
         ),
-        _nextButton('التالي: محاور الدرس', _next),
+        _nextButton('التالي: المراجعة والإرسال', _next),
       ],
     );
   }
 
-  Widget _stepNodes() {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
+  List<Widget> _advancedCards() {
+    return [
         Card(
           child: Padding(
             padding: const EdgeInsets.all(12),
@@ -837,7 +804,7 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
               children: [
                 Row(children: [
                   const Expanded(
-                    child: Text('محاور الدرس',
+                    child: Text('محاور الدرس (اختيارية)',
                         style: TextStyle(
                             fontSize: 16, fontWeight: FontWeight.w700)),
                   ),
@@ -893,7 +860,7 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
               children: [
                 Row(children: [
                   const Expanded(
-                    child: Text('المرفقات',
+                    child: Text('مستندات مرفقة (اختيارية)',
                         style: TextStyle(
                             fontSize: 16, fontWeight: FontWeight.w700)),
                   ),
@@ -930,7 +897,7 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('الربط بالمنهج الرسمي',
+                const Text('الربط بالمنهج الرسمي (اختياري)',
                     style:
                         TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 6),
@@ -963,12 +930,7 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
             ),
           ),
         ),
-        const InfoBox(
-            'الدرس لا يضيف معاملًا ولا ساعات ولا يغيّر شيئًا في المنهج الرسمي.',
-            icon: Icons.shield_outlined),
-        _nextButton('التالي: المعاينة والنشر', _next),
-      ],
-    );
+    ];
   }
 
   Widget _stepPreview() {
@@ -1056,7 +1018,7 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('ينقص قبل الإرسال إلى المراجعة:',
+                  const Text('ينقص قبل الإرسال:',
                       style: TextStyle(fontWeight: FontWeight.w700)),
                   for (final i in readiness)
                     Text('• ${i.message}', style: const TextStyle(fontSize: 13)),
@@ -1065,122 +1027,81 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
             ),
           ),
         Card(
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(children: [
-                  const Expanded(
-                    child: Text('الحالة',
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.w700)),
-                  ),
-                  if (_lessonId != null)
-                    Text('محفوظ: ${_savedStatus.label} · النسخة $_savedVersion',
-                        style: const TextStyle(fontSize: 12)),
-                ]),
-                const SizedBox(height: 8),
-                SegmentedButton<LessonStatus>(
-                  showSelectedIcon: false,
-                  segments: [
-                    for (final s in LessonStatus.values)
-                      ButtonSegment<LessonStatus>(
-                          value: s, label: Text(s.label)),
-                  ],
-                  selected: {_targetStatus},
-                  onSelectionChanged: (s) =>
-                      setState(() => _targetStatus = s.first),
-                ),
-                if (_savedStatus == LessonStatus.published && _lessonId != null)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 6),
-                    child: Text(
-                        'تعديل درس منشور ينشئ نسخة جديدة ويعيده إلى مسودة.',
-                        style: TextStyle(fontSize: 12)),
-                  ),
-              ],
-            ),
+          child: ExpansionTile(
+            title: const Text('خيارات إضافية (اختيارية)'),
+            childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+            children: _advancedCards(),
           ),
-        ),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(children: [
-                  const Expanded(
-                    child: Text('نسخة الدرس',
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.w700)),
-                  ),
-                  Chip(label: Text('النسخة $_savedVersion')),
-                ]),
-                const Text('يُضاف ختم يكشف أي تلف في الملف عند حفظ النسخة.',
-                    style: TextStyle(fontSize: 12.5)),
-                const SizedBox(height: 6),
-                const InfoBox(
-                    'الإرسال العادي للتلاميذ يتم بزر «انشر للتلاميذ». '
-                    'حفظ النسخة كملف مفيد للاحتفاظ بها أو لإرسالها يدويًا، '
-                    'ولا يتاح إلا للدروس المنشورة.'),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 4),
-        FilledButton.icon(
-          onPressed: _busy ? null : _export,
-          icon: const Icon(Icons.upload_file),
-          label: const Text('احفظ نسخة من الدرس'),
-          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
         ),
         const SizedBox(height: 8),
-        if (_lessonId != null && _savedStatus == LessonStatus.published) ...[
-          FilledButton.icon(
-            onPressed: (_busy || !canSendToStudents(context))
-                ? null
-                : () => publishLessonOnline(context, _lessonId!),
-            icon: const Icon(Icons.send_outlined),
-            label: Text(canSendToStudents(context)
-                ? 'انشر للتلاميذ'
-                : 'انشر للتلاميذ (يتطلب الدخول بكلمة مرور الأساتذة)'),
-            style:
-                FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
-          ),
-          const SizedBox(height: 8),
-        ],
-        OutlinedButton(
+        if (!canSendToStudents(context))
+          const InfoBox(
+              'للإرسال إلى التلاميذ ادخل بكلمة مرور الأساتذة من رابط لوحة الأستاذ. '
+              'يُحفظ الدرس هنا في الحالتين.',
+              icon: Icons.lock_outline),
+        const SizedBox(height: 8),
+        FilledButton.icon(
+          onPressed: _busy ? null : _sendToStudents,
+          icon: _busy
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.send_outlined),
+          label: Text(_busy ? 'جارٍ الإرسال…' : 'إرسال الدرس للتلاميذ'),
+          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
+        ),
+        const SizedBox(height: 8),
+        TextButton(
           onPressed: _busy
               ? null
               : () async {
-                  // Nothing changed and the status is the same: nothing to
-                  // save (saving a published lesson would make a new version).
-                  if (!_dirty &&
-                      _lessonId != null &&
-                      _targetStatus == _savedStatus) {
-                    Navigator.of(context).pop(true);
-                    return;
-                  }
-                  final ok = await _save(_targetStatus);
-                  if (ok &&
-                      mounted &&
-                      _targetStatus == LessonStatus.published &&
-                      _lessonId != null &&
-                      canSendToStudents(context)) {
-                    // A published lesson is meant for the students: send it
-                    // now (and prove it arrived) when the teacher is signed in.
-                    await publishLessonOnline(context, _lessonId!);
-                  }
+                  final ok = await _save(LessonStatus.draft);
                   if (ok && mounted) Navigator.of(context).pop(true);
                 },
-          style: OutlinedButton.styleFrom(
-              minimumSize: const Size.fromHeight(48)),
-          child: Text(_targetStatus == LessonStatus.draft
-              ? 'احفظ كمسودة'
-              : 'احفظ واجعل الحالة «${_targetStatus.label}»'),
+          child: const Text('احفظ دون إرسال (لأكمله لاحقًا)'),
         ),
       ],
+    );
+  }
+}
+
+/// A large, clear choice (used for the lesson's school year).
+class _BigChoice extends StatelessWidget {
+  const _BigChoice(
+      {required this.label, required this.selected, required this.onTap});
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final mq = context.mq;
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: onTap,
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 58),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? mq.brandSoft : mq.surface2,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+              color: selected ? mq.brand : mq.line, width: selected ? 2.5 : 1),
+        ),
+        child: Row(children: [
+          Icon(selected ? Icons.check_circle : Icons.circle_outlined,
+              size: 26, color: selected ? mq.brand : mq.ink3),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(label,
+                style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: selected ? mq.brandDeep : mq.ink)),
+          ),
+        ]),
+      ),
     );
   }
 }

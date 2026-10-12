@@ -25,7 +25,7 @@ class _ManageImportedScreenState extends State<ManageImportedScreen> {
       context,
       title: 'تأكيد الحذف',
       message: 'سيُحذف «${item.lesson.title}» من جهازك. يمكنك إضافته مرة '
-          'أخرى متى توفّر الملف أو بتحديثه من الإنترنت. مهامك وإتقانك وذاكرتك لا تتأثر.',
+          'أخرى بتحديث الدروس من الإنترنت. مهامك وإتقانك وذاكرتك لا تتأثر.',
       confirmLabel: 'احذف',
     );
     if (!ok || !mounted) return;
@@ -90,9 +90,6 @@ class _ManageImportedScreenState extends State<ManageImportedScreen> {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     TextButton(
-                                        onPressed: _update,
-                                        child: const Text('حدّث')),
-                                    TextButton(
                                         onPressed: () => _delete(i),
                                         child: Text('احذف',
                                             style: TextStyle(
@@ -109,7 +106,13 @@ class _ManageImportedScreenState extends State<ManageImportedScreen> {
               },
             ),
             const InfoBox(
-                'حذف ملف دروس يزيل محتواها فقط. مهامك وإتقانك وذاكرتك لا تتأثر.'),
+                'حذف درس يزيل محتواه من جهازك فقط. مهامك وإتقانك وذاكرتك لا تتأثر.'),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: _update,
+              icon: const Icon(Icons.attach_file),
+              label: const Text('أضف درسًا أرسله لك أستاذك (دون إنترنت)'),
+            ),
           ],
         ),
       ),

@@ -55,7 +55,7 @@ class _ImportScreenState extends State<ImportScreen> {
   Future<void> _pickFile() => _guard(() async {
         if (!deviceFilesAvailable) {
           showSnack(context,
-              'اختيار الملفات غير متاح هنا. استعمل «الصق من الحافظة».');
+              'اختيار الدرس من الجهاز غير متاح هنا. استعمل «الصق الدرس».');
           return;
         }
         final files = await pickAnyFiles(accept: '.json,application/json');
@@ -123,7 +123,7 @@ class _ImportScreenState extends State<ImportScreen> {
     final preview = _preview;
     final c = preview?.content;
     return Scaffold(
-      appBar: AppBar(title: const Text('إضافة ملف دروس')),
+      appBar: AppBar(title: const Text('إضافة درس من أستاذك')),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -133,7 +133,7 @@ class _ImportScreenState extends State<ImportScreen> {
                 child: FilledButton.icon(
                   onPressed: _busy ? null : _pickFile,
                   icon: const Icon(Icons.folder_open),
-                  label: const Text('اختر ملف الدروس'),
+                  label: const Text('اختر الدرس من جهازك'),
                 ),
               ),
               const SizedBox(width: 8),
@@ -141,7 +141,7 @@ class _ImportScreenState extends State<ImportScreen> {
                 child: OutlinedButton.icon(
                   onPressed: _busy ? null : _paste,
                   icon: const Icon(Icons.content_paste),
-                  label: const Text('الصق من الحافظة'),
+                  label: const Text('الصق الدرس'),
                 ),
               ),
             ]),
@@ -170,7 +170,7 @@ class _ImportScreenState extends State<ImportScreen> {
                                 fontSize: 17, fontWeight: FontWeight.w800)),
                         Text(
                             '${c.subjectName} · ${internalLevelLabel(c.internalLevel)} · '
-                            '${c.pages.length} صفحات · ${formatBytes(c.totalBytes)}',
+                            '${c.pages.length} صفحة · ${formatBytes(c.totalBytes)}',
                             style: const TextStyle(fontSize: 12.5)),
                         Text('المرسل: ${c.teacherName} (اسم غير مؤكَّد)',
                             style: TextStyle(
@@ -209,9 +209,9 @@ class _ImportScreenState extends State<ImportScreen> {
                             fontSize: 16, fontWeight: FontWeight.w700)),
                     SizedBox(height: 6),
                     Text('• يضيف محتوى فقط ولا يمسّ مهامك أو إتقانك أو ذاكرتك.'),
-                    Text('• لا يُضاف الملف مرتين: إن كان عندك فلن يتكرر.'),
+                    Text('• لا يُضاف الدرس مرتين: إن كان عندك فلن يتكرر.'),
                     Text('• المحتوى غير رسمي: لا يغيّر المنهج ولا المعاملات.'),
-                    Text('• يُفحص الملف قبل إضافته للتأكد أنه سليم، لكن اسم المرسل غير موثّق.'),
+                    Text('• يُفحص الدرس قبل إضافته للتأكد أنه سليم، لكن اسم المرسل غير موثّق.'),
                   ],
                 ),
               ),

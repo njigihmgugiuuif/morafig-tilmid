@@ -1,12 +1,15 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../database/app_database.dart';
 import '../../database/teacher_content_database.dart';
 import '../../repositories/teacher_content_repository.dart';
 import '../../services/planning_service.dart';
+import '../../platform/connectivity.dart';
+import '../../services/lesson_auto_sync.dart';
 import '../../services/lesson_remote_service.dart';
 import '../../services/teacher_session.dart';
 
@@ -16,7 +19,7 @@ import '../../services/teacher_session.dart';
 ///
 /// Also tracks first-run / onboarding status. Nothing here touches the
 /// network; SharedPreferences is local device storage only.
-class AppState extends ChangeNotifier {
+class AppState extends ChangeNotifier with WidgetsBindingObserver {
   AppState._(this.db, this._studentId, {bool teacherOnly = false})
       : _teacherOnly = teacherOnly;
 
@@ -50,6 +53,33 @@ class AppState extends ChangeNotifier {
   /// Shared lesson storage (Supabase). Disabled until configured.
   late final LessonRemoteService lessonRemote = LessonRemoteService();
 
+  /// Automatic arrival of new lessons (student side only; never started in
+  /// the teacher panel). See [LessonAutoSync] for exactly when it runs.
+  late final LessonAutoSync autoSync = LessonAutoSync(
+    readLevel: () async {
+      final raw = await SharedPrefsKeyValueStore().getString(kStudentLessonLevelKey);
+      final v = int.tryParse(raw ?? '');
+      return (v != null && v >= 1 && v <= 3) ? v : null;
+    },
+    syncLevel: (level) =>
+        LessonSyncService(lessonRemote, teacherRepository).syncLevel(level),
+    isConfigured: () => lessonRemote.configured,
+  );
+
+  bool _autoSyncStarted = false;
+
+  void startAutoSync() {
+    if (_teacherOnly || _autoSyncStarted) return;
+    _autoSyncStarted = true;
+    WidgetsBinding.instance.addObserver(this);
+    autoSync.start(onlineEvents());
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    autoSync.setForeground(state == AppLifecycleState.resumed);
+  }
+
   /// The teachers' password for this visit (memory only).
   final TeacherRemoteSession teacherRemote = TeacherRemoteSession();
 
@@ -78,6 +108,7 @@ class AppState extends ChangeNotifier {
     }
 
     final state = AppState._(db, verifiedId);
+    state.startAutoSync();
 
     // B: the app-open trigger of the planning service (there is no
     // background work without a server). Fire-and-forget: it never delays

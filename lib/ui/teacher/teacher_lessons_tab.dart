@@ -6,7 +6,7 @@ import '../widgets/async_section.dart';
 import 'teacher_actions.dart';
 import 'teacher_widgets.dart';
 
-/// T03 · الدروس: search + level filter + status filter over the teacher's
+/// دروسي: search + year filter over the teacher's
 /// own lessons. The level filter uses the three internal levels only; the
 /// «القسم» is shown as information and filters nothing.
 class TeacherLessonsTab extends StatefulWidget {
@@ -30,7 +30,6 @@ class TeacherLessonsTab extends StatefulWidget {
 class _TeacherLessonsTabState extends State<TeacherLessonsTab> {
   final _search = TextEditingController();
   int? _level;
-  LessonStatus? _status;
 
   @override
   void dispose() {
@@ -61,7 +60,7 @@ class _TeacherLessonsTabState extends State<TeacherLessonsTab> {
     return Stack(
       children: [
         ListView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+          padding: const EdgeInsets.all(16),
           children: [
             Card(
               child: Padding(
@@ -69,18 +68,26 @@ class _TeacherLessonsTabState extends State<TeacherLessonsTab> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Text('إرسال الدروس للتلاميذ',
+                    const Text('أنشئ درسًا وأرسله لتلاميذك',
                         style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.w700)),
+                            fontSize: 17, fontWeight: FontWeight.w800)),
                     const SizedBox(height: 4),
                     Text(
                         canSendToStudents(context)
-                            ? 'الدروس «المنشورة» لا تصل إلى التلاميذ إلا بعد إرسالها. '
-                                'سيتحقق التطبيق من وصول كل درس بصوره.'
+                            ? 'اختر السنة، اكتب بيانات الدرس، اختر صوره من هاتفك، '
+                                'ثم أرسله. يصل إلى التلاميذ تلقائيًا ونتحقق من وصول كل صورة.'
                             : 'للإرسال ادخل من رابط لوحة الأستاذ بكلمة مرور الأساتذة.',
                         style: const TextStyle(fontSize: 12.5)),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 10),
                     FilledButton.icon(
+                      onPressed: widget.onNewLesson,
+                      icon: const Icon(Icons.add),
+                      label: const Text('درس جديد'),
+                      style: FilledButton.styleFrom(
+                          minimumSize: const Size.fromHeight(52)),
+                    ),
+                    const SizedBox(height: 6),
+                    TextButton.icon(
                       onPressed: canSendToStudents(context)
                           ? () async {
                               await publishAllOnline(context);
@@ -88,7 +95,7 @@ class _TeacherLessonsTabState extends State<TeacherLessonsTab> {
                             }
                           : null,
                       icon: const Icon(Icons.send_outlined),
-                      label: const Text('أرسل دروسي المنشورة للتلاميذ'),
+                      label: const Text('أعد إرسال كل دروسي للتلاميذ'),
                     ),
                   ],
                 ),
@@ -121,27 +128,15 @@ class _TeacherLessonsTabState extends State<TeacherLessonsTab> {
                   ),
               ],
             ),
-            const SizedBox(height: 4),
-            Wrap(
-              spacing: 6,
-              children: [
-                for (final s in LessonStatus.values)
-                  FilterChip(
-                    label: Text(s.label),
-                    selected: _status == s,
-                    onSelected: (v) => setState(() => _status = v ? s : null),
-                  ),
-              ],
-            ),
             const SizedBox(height: 8),
             Card(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: AsyncSection<List<LessonListItem>>(
                   future: () => repo.listAuthored(
-                      level: _level, status: _status, query: _search.text),
+                      level: _level, query: _search.text),
                   isEmpty: (d) => d.isEmpty,
-                  emptyMessage: 'لا دروس مطابقة. اضغط «درس جديد» لتبدأ.',
+                  emptyMessage: 'لا دروس بعد. اضغط «درس جديد» لتبدأ.',
                   emptyIcon: Icons.menu_book_outlined,
                   builder: (context, items) => Column(
                     children: [
@@ -154,7 +149,7 @@ class _TeacherLessonsTabState extends State<TeacherLessonsTab> {
                             onSelected: (v) async {
                               if (v == 'edit') {
                                 widget.onOpenLesson(i.lesson.id);
-                              } else if (v == 'export') {
+                              } else if (v == 'backup') {
                                 await exportLessonPackage(context, i.lesson.id);
                                 widget.onChanged();
                               } else if (v == 'publishOnline') {
@@ -173,13 +168,13 @@ class _TeacherLessonsTabState extends State<TeacherLessonsTab> {
                               if (LessonStatus.fromDb(i.lesson.status) ==
                                   LessonStatus.published)
                                 const PopupMenuItem(
-                                    value: 'export',
-                                    child: Text('احفظ نسخة من الدرس (ملف)')),
+                                    value: 'backup',
+                                    child: Text('احفظ نسخة احتياطية')),
                               if (LessonStatus.fromDb(i.lesson.status) ==
                                   LessonStatus.published)
                                 const PopupMenuItem(
                                     value: 'publishOnline',
-                                    child: Text('انشر للتلاميذ')),
+                                    child: Text('أرسل للتلاميذ')),
                               if (LessonStatus.fromDb(i.lesson.status) ==
                                   LessonStatus.published)
                                 const PopupMenuItem(
@@ -203,20 +198,7 @@ class _TeacherLessonsTabState extends State<TeacherLessonsTab> {
                 ),
               ),
             ),
-            const SizedBox(height: 8),
-            const InfoBox(
-                '«القسم» للتوضيح فقط. المستوى (الأولى أو الثانية أو الثالثة '
-                'ثانوي) هو الذي يحدد لمن يصل الدرس.'),
           ],
-        ),
-        Positioned(
-          bottom: 16,
-          left: 16,
-          child: FloatingActionButton.extended(
-            onPressed: widget.onNewLesson,
-            icon: const Icon(Icons.add),
-            label: const Text('درس جديد'),
-          ),
         ),
       ],
     );

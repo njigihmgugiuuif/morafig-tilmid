@@ -122,7 +122,6 @@ class _TeacherAccountTabState extends State<TeacherAccountTab> {
   @override
   Widget build(BuildContext context) {
     final session = context.read<AppState>().teacherSession;
-    final repo = teacherRepo(context);
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -153,24 +152,6 @@ class _TeacherAccountTabState extends State<TeacherAccountTab> {
                     subtitle: const Text('راحة على هذا الجهاز، وليس حماية'),
                     trailing: Chip(label: Text(has ? 'مفعّل' : 'غير مفعّل')),
                     onTap: () => _changePin(has),
-                  );
-                },
-              ),
-              const Divider(height: 1),
-              FutureBuilder<({int packages, DateTime? last})>(
-                future: repo.exportSummary(),
-                builder: (context, snap) {
-                  final s = snap.data;
-                  final last = s?.last;
-                  return ListTile(
-                    leading: const Icon(Icons.upload_file_outlined),
-                    title: const Text('النسخ المحفوظة كملفات'),
-                    subtitle: Text(s == null
-                        ? '...'
-                        : s.packages == 0
-                            ? 'لم تُحفظ نسخة بعد'
-                            : '${s.packages} ملفات · آخرها '
-                                '${last == null ? '' : _ago(last)}'),
                   );
                 },
               ),
