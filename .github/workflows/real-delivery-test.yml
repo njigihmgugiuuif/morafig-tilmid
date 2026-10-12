@@ -1,0 +1,44 @@
+name: Real delivery test
+
+# Manual only. Publishes a small test lesson (3 photos) to the REAL Supabase
+# project as a teacher, receives it with a separate student client, compares
+# every photo by SHA-256, then withdraws the test lesson.
+# Needs the repository secret TEACHER_PASSWORD (Settings > Secrets and
+# variables > Actions). The password is never printed or stored in the repo.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  real-delivery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Native SQLite
+        run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev
+
+      - name: flutter pub get
+        run: flutter pub get
+
+      - name: Generate drift code
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Real server delivery test
+        env:
+          TEACHER_PASSWORD: ${{ secrets.TEACHER_PASSWORD }}
+        run: |
+          if [ -z "$TEACHER_PASSWORD" ]; then
+            echo "The secret TEACHER_PASSWORD is not set. Add it, then run again."
+            exit 1
+          fi
+          flutter test test/real_server_delivery_test.dart --reporter expanded
