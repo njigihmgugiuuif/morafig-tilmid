@@ -142,7 +142,7 @@ class _TeacherLessonsTabState extends State<TeacherLessonsTab> {
                                   LessonStatus.published)
                                 const PopupMenuItem(
                                     value: 'export',
-                                    child: Text('صدّر الملف (نسخة احتياطية)')),
+                                    child: Text('احفظ نسخة من الدرس (ملف)')),
                               if (LessonStatus.fromDb(i.lesson.status) ==
                                   LessonStatus.published)
                                 const PopupMenuItem(

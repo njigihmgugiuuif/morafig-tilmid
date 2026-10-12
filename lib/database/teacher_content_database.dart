@@ -32,6 +32,11 @@ class TeacherContentDatabase extends _$TeacherContentDatabase {
   factory TeacherContentDatabase.open() =>
       TeacherContentDatabase(openTeacherConnection());
 
+  /// The student app's own lessons: same tables, but a database of its own,
+  /// so nothing a teacher authored on the same device is inside it.
+  factory TeacherContentDatabase.openStudentLibrary() =>
+      TeacherContentDatabase(openStudentLibraryConnection());
+
   @override
   int get schemaVersion => 1;
 

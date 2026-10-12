@@ -75,7 +75,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
     if (!state.lessonRemote.configured) {
       if (!silent) {
         setState(() => _syncMessage =
-            'التحديث عبر الإنترنت غير مفعّل بعد. يمكنك استيراد ملف دروس يدويًا.');
+            'التحديث عبر الإنترنت غير مفعّل بعد. يمكنك إضافة ملف دروس من أستاذك.');
       }
       return;
     }
@@ -157,11 +157,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
       actions: [
         MqIconButton(
             icon: Icons.storage_outlined,
-            label: 'إدارة المحتوى المستورد',
+            label: 'دروسي على هذا الجهاز',
             onTap: _openManage),
         MqIconButton(
             icon: Icons.download_outlined,
-            label: 'استيراد ملف دروس',
+            label: 'إضافة ملف دروس',
             onTap: _openImport),
       ],
       children: [
@@ -229,7 +229,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
               spacing: 6,
               children: [
                 ChoiceChip(
-                  label: const Text('كل ما استوردته'),
+                  label: const Text('كل دروسي'),
                   selected: _level == null,
                   onSelected: (_) => setState(() => _level = null),
                 ),
@@ -247,7 +247,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   repo.listImported(level: _level, query: _search.text),
               isEmpty: (d) => d.isEmpty,
               emptyMessage:
-                  'لا دروس مستوردة بعد. اطلب من أستاذك ملف الدروس ثم اضغط «استيراد ملف دروس».',
+                  'لا دروس عندك بعد. اختر مستواك واضغط «حدّث الدروس من الإنترنت»، أو اطلب من أستاذك ملف دروس ثم اضغط «إضافة ملف دروس».',
               emptyIcon: Icons.menu_book_outlined,
               builder: (context, items) {
                 final bySubject = <String, List<LessonListItem>>{};
@@ -297,7 +297,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
             ),
             const SizedBox(height: 8),
             const InfoBox(
-              'تظهر لك كل الدروس التي استوردتها. خيارات المستوى أعلاه للتصفية فقط '
+              'تظهر لك كل دروسك المحفوظة على الجهاز. خيارات المستوى أعلاه للتصفية فقط '
               'وليست قيدًا على ما يمكنك فتحه.',
               icon: Icons.help_outline,
             ),
@@ -305,7 +305,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
             FilledButton.icon(
               onPressed: _openImport,
               icon: const Icon(Icons.download),
-              label: const Text('استيراد ملف دروس من أستاذ'),
+              label: const Text('إضافة ملف دروس من أستاذ'),
             ),
       ],
     );

@@ -40,7 +40,9 @@ class AppState extends ChangeNotifier {
   /// TeacherSession for what it does NOT do (it cannot verify identity).
   /// The separate teacher-content database (DEVIATION-23), opened on first
   /// use so a student who never opens the library pays nothing for it.
-  late final TeacherContentDatabase teacherDb = TeacherContentDatabase.open();
+  late final TeacherContentDatabase teacherDb = _teacherOnly
+      ? TeacherContentDatabase.open()
+      : TeacherContentDatabase.openStudentLibrary();
 
   TeacherContentRepository get teacherRepository =>
       TeacherContentRepository(teacherDb, mainDb: _teacherOnly ? null : db);

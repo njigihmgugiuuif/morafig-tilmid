@@ -123,7 +123,7 @@ class _ImportScreenState extends State<ImportScreen> {
     final preview = _preview;
     final c = preview?.content;
     return Scaffold(
-      appBar: AppBar(title: const Text('استيراد ملف دروس')),
+      appBar: AppBar(title: const Text('إضافة ملف دروس')),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -209,9 +209,9 @@ class _ImportScreenState extends State<ImportScreen> {
                             fontSize: 16, fontWeight: FontWeight.w700)),
                     SizedBox(height: 6),
                     Text('• يضيف محتوى فقط ولا يمسّ مهامك أو إتقانك أو ذاكرتك.'),
-                    Text('• لا يُضاف الملف مرتين: البصمة نفسها تُرفض كمكررة.'),
+                    Text('• لا يُضاف الملف مرتين: إن كان عندك فلن يتكرر.'),
                     Text('• المحتوى غير رسمي: لا يغيّر المنهج ولا المعاملات.'),
-                    Text('• البصمة تكشف التلف وليست إثباتًا لهوية المرسل.'),
+                    Text('• يُفحص الملف قبل إضافته للتأكد أنه سليم، لكن اسم المرسل غير موثّق.'),
                   ],
                 ),
               ),

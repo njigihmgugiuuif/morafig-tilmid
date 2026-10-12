@@ -41,8 +41,8 @@ Future<void> exportLessonPackage(BuildContext context, String lessonId) async {
     showSnack(
         context,
         saved
-            ? 'صُدّر الملف: ${out.fileName}'
-            : 'نُسخ الملف إلى الحافظة. الصقها في ملف أو أرسلها للتلميذ.');
+            ? 'حُفظت نسخة الدرس: ${out.fileName}'
+            : 'نُسخ الدرس. الصقه في ملف أو أرسله للتلميذ.');
   } catch (e) {
     if (!context.mounted) return;
     showRefusal(context, e);

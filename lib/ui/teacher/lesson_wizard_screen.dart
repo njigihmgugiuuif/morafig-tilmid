@@ -185,7 +185,7 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
     if (!deviceFilesAvailable) {
       showSnack(
           context,
-          'اختيار الصور من الجهاز متاح في نسخة الويب/PWA فقط حاليًا. '
+          'اختيار الصور من الجهاز متاح في نسخة المتصفح فقط حاليًا. '
           'اختيار طريقة حفظ الصور في نسخة الهاتف الأصلية قرار مفتوح.');
       return;
     }
@@ -395,7 +395,7 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
     if (_busy) return;
     if (!deviceFilesAvailable) {
       showSnack(context,
-          'إرفاق الملفات متاح في نسخة الويب/PWA فقط حاليًا.');
+          'إرفاق الملفات متاح في نسخة المتصفح فقط حاليًا.');
       return;
     }
     setState(() => _busy = true);
@@ -707,7 +707,7 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
         const SizedBox(height: 8),
         if (!deviceFilesAvailable)
           const InfoBox(
-              'التقاط الصور واختيارها من الهاتف متاح في نسخة الويب/PWA. '
+              'التقاط الصور واختيارها من الهاتف متاح في نسخة المتصفح. '
               'نسخة الهاتف الأصلية تحتاج طريقة لحفظ الصور لم تُعتمد بعد.',
               icon: Icons.warning_amber_rounded),
         const SizedBox(height: 8),
@@ -800,7 +800,7 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
                     onPressed: _pages.isEmpty ? null : _rotatePage,
                     icon: const Icon(Icons.rotate_right)),
                 const IconButton(
-                    tooltip: 'القص غير متاح بعد (يحتاج مكتبة صور، O-4)',
+                    tooltip: 'القص غير متاح بعد',
                     onPressed: null,
                     icon: Icon(Icons.crop)),
                 IconButton(
@@ -1117,7 +1117,7 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
                   ),
                   Chip(label: Text('الإصدار $_savedVersion')),
                 ]),
-                const Text('بصمة الملف تُحسب عند التصدير.',
+                const Text('يُضاف ختم يكشف أي تلف في الملف عند حفظ النسخة.',
                     style: TextStyle(fontSize: 12.5)),
                 const SizedBox(height: 6),
                 const InfoBox(
@@ -1131,7 +1131,7 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
         FilledButton.icon(
           onPressed: _busy ? null : _export,
           icon: const Icon(Icons.upload_file),
-          label: const Text('صدّر الملف'),
+          label: const Text('احفظ نسخة من الدرس'),
           style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
         ),
         const SizedBox(height: 8),

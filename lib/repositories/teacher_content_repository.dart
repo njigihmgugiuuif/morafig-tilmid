@@ -189,7 +189,7 @@ class TeacherContentRepository {
         final existing = await _requireLesson(lessonId);
         if (existing.origin != LessonOrigin.authored.toDb) {
           throw TeacherContentException.single('imported_read_only',
-              'الدرس المستورد للقراءة فقط ولا يُعدَّل.');
+              'الدرس الذي وصلك من أستاذ للقراءة فقط ولا يُعدَّل.');
         }
         final status = LessonStatus.fromDb(existing.status);
         // Editing a published lesson is a NEW version; editing a lesson that
@@ -272,7 +272,7 @@ class TeacherContentRepository {
       final lesson = agg.lesson;
       if (lesson.origin != LessonOrigin.authored.toDb) {
         throw TeacherContentException.single('imported_read_only',
-            'حالة الدرس المستورد لا تتغير.');
+            'حالة الدرس الذي وصلك من أستاذ لا تتغير.');
       }
       final from = LessonStatus.fromDb(lesson.status);
       if (!canTransition(from, to)) {
@@ -311,7 +311,7 @@ class TeacherContentRepository {
     final lesson = await _requireLesson(lessonId);
     if (lesson.origin != LessonOrigin.authored.toDb) {
       throw TeacherContentException.single(
-          'imported_read_only', 'الدرس المستورد للقراءة فقط.');
+          'imported_read_only', 'الدرس الذي وصلك من أستاذ للقراءة فقط.');
     }
     await (_db.update(_db.teacherLessons)..where((t) => t.id.equals(lessonId)))
         .write(TeacherLessonsCompanion(

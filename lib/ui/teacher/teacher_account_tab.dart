@@ -168,7 +168,7 @@ class _TeacherAccountTabState extends State<TeacherAccountTab> {
                     subtitle: Text(s == null
                         ? '...'
                         : s.packages == 0
-                            ? 'لم يُصدَّر ملف بعد'
+                            ? 'لم تُحفظ نسخة بعد'
                             : '${s.packages} ملفات · آخرها '
                                 '${last == null ? '' : _ago(last)}'),
                   );
@@ -190,8 +190,8 @@ class _TeacherAccountTabState extends State<TeacherAccountTab> {
                 _Rule('المحتوى يذهب في اتجاه واحد: من الأستاذ إلى التلميذ.'),
                 _Rule('لا تصل إليك بيانات أي تلميذ: لا إتقان ولا أخطاء ولا هوية.'),
                 _Rule('ما تنشره لا يغيّر المنهج الرسمي ولا المعاملات ولا '
-                    'محركات التلميذ.'),
-                _Rule('التلميذ يحذف ما استورده متى شاء دون أثر على بقية '
+                    'خطة التلميذ.'),
+                _Rule('التلميذ يحذف ما وصله متى شاء دون أثر على بقية '
                     'بياناته.'),
               ],
             ),

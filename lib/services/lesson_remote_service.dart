@@ -82,7 +82,7 @@ class LessonRemoteService {
   void _requireConfigured() {
     if (!configured) {
       throw const RemoteException(
-          'المزامنة عبر الإنترنت غير مفعّلة بعد في هذه النسخة.');
+          'التحديث عبر الإنترنت غير مفعّل بعد في هذه النسخة.');
     }
   }
 
@@ -240,7 +240,7 @@ class LessonRemoteService {
     }
     if (entry.fingerprint != fingerprint) {
       throw const RemoteException(
-          'الدرس موجود على الخادم لكن بصمته لا تطابق ما أرسلته.');
+          'الدرس موجود على الخادم لكن محتواه لا يطابق ما أرسلته.');
     }
     final text = await downloadPackage(entry.packagePath);
     final Object? decoded;
@@ -256,7 +256,7 @@ class LessonRemoteService {
     if (decoded is! Map<String, dynamic> ||
         decoded['fingerprint'] != fingerprint) {
       throw const RemoteException(
-          'الملف الذي على الخادم لا يطابق الدرس المرسَل (البصمة مختلفة).');
+          'الملف الذي على الخادم لا يطابق الدرس المرسَل (المحتوى مختلف).');
     }
     if (pages != expectedPages) {
       throw RemoteException(

@@ -21,3 +21,8 @@ QueryExecutor openConnection() {
 QueryExecutor openTeacherConnection() {
   return _impl.openTeacherConnection();
 }
+
+/// The student's own lessons (separate from the teacher panel's database).
+QueryExecutor openStudentLibraryConnection() {
+  return _impl.openStudentLibraryConnection();
+}

@@ -136,11 +136,11 @@ class TeacherPackageService {
     final l = agg.lesson;
     if (l.origin != LessonOrigin.authored.toDb) {
       throw TeacherContentException.single(
-          'imported_not_exportable', 'لا يُصدَّر إلا درس كتبتَه أنت.');
+          'imported_not_exportable', 'لا تُحفظ نسخة إلا لدرس كتبتَه أنت.');
     }
     if (LessonStatus.fromDb(l.status) != LessonStatus.published) {
       throw TeacherContentException.single('not_published',
-          'لا تُصدَّر إلا الدروس «المنشورة». أرسل الدرس إلى المراجعة ثم اعتمده.');
+          'لا تُحفظ نسخة إلا للدروس «المنشورة». أرسل الدرس إلى المراجعة ثم اعتمده.');
     }
     final content = PackageContent(
       originLessonId: l.id,
@@ -312,7 +312,7 @@ class TeacherPackageService {
     if (stated is! String || stated != fingerprint) {
       return const PackagePreview(
           kind: PackageKind.corrupt,
-          message: 'بصمة ملف الدروس لا تطابق محتواه: الملف تالف أو عُدّل. '
+          message: 'هذا الملف تالف أو عُدّل بعد إنشائه. '
               'بياناتك لم تُمَس.');
     }
 
@@ -320,7 +320,7 @@ class TeacherPackageService {
     if (dup != null) {
       return PackagePreview(
         kind: PackageKind.duplicate,
-        message: 'هذا الملف موجود عندك بنفس البصمة، فلن تُضاف مرتين.',
+        message: 'هذا الدرس موجود عندك بالفعل، فلن يُضاف مرتين.',
         content: content,
         fingerprint: fingerprint,
         existingVersion: dup.versionNumber,

@@ -13,6 +13,9 @@ QueryExecutor openConnection() => _open('student_app.sqlite');
 /// The separate teacher-content database (DEVIATION-23).
 QueryExecutor openTeacherConnection() => _open('teacher_content.sqlite');
 
+/// The student's own lessons, apart from the teacher panel's database.
+QueryExecutor openStudentLibraryConnection() => _open('student_library.sqlite');
+
 QueryExecutor _open(String fileName) {
   return LazyDatabase(() async {
     final dir = await getApplicationDocumentsDirectory();

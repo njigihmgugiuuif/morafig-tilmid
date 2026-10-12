@@ -253,13 +253,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'التصدير ينسخ كل بياناتك كنص إلى الحافظة. للاستعادة انسخ '
+                  'حفظ النسخة ينسخ كل بياناتك كنص إلى الحافظة. للاستعادة انسخ '
                   'ذلك النص ثم اضغط «استعادة من الحافظة».',
                   style: MqType.small.copyWith(color: p.ink2),
                 ),
                 const SizedBox(height: 12),
                 MqButton(
-                  label: 'تصدير نسخة احتياطية',
+                  label: 'احفظ نسخة احتياطية',
                   icon: Icons.copy_all_outlined,
                   kind: MqButtonKind.secondary,
                   block: true,
@@ -332,7 +332,7 @@ class _ResetConfirmDialogState extends State<_ResetConfirmDialog> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const Text(
-            'سيُحذف كل شيء من هذا الجهاز نهائيًا ولا يمكن التراجع. صدّر '
+            'سيُحذف كل شيء من هذا الجهاز نهائيًا ولا يمكن التراجع. احفظ '
             'نسخة احتياطية أولًا إن أردت الاحتفاظ ببياناتك.',
           ),
           const SizedBox(height: 12),

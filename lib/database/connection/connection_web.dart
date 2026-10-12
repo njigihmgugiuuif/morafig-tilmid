@@ -7,6 +7,11 @@ QueryExecutor openConnection() => _open('app_db');
 /// IndexedDB database, opened exactly like the main one.
 QueryExecutor openTeacherConnection() => _open('teacher_content_db');
 
+/// The student's own copy of the lessons that reached them. It is a DIFFERENT
+/// database from the teacher panel's, so a teacher's drafts never sit inside
+/// a student's storage and the two screens never fight over one database.
+QueryExecutor openStudentLibraryConnection() => _open('student_library_db');
+
 QueryExecutor _open(String databaseName) {
   return LazyDatabase(() async {
     // Resolve both asset URIs to ABSOLUTE URLs against the page's real
@@ -37,10 +42,11 @@ QueryExecutor _open(String databaseName) {
       sqlite3Uri: sqlite3Uri,
       driftWorkerUri: driftWorkerUri,
     ).timeout(
-      const Duration(seconds: 10),
+      const Duration(seconds: 25),
       onTimeout: () => throw Exception(
-        'انتهت مهلة فتح قاعدة بيانات الويب بعد 10 ثوانٍ. عناوين الملفات '
-        'المستخدَمة كانت: sqlite3Uri=$sqlite3Uri، '
+        'تعذّر فتح قاعدة البيانات على هذا الجهاز خلال 25 ثانية. أغلق نوافذ '
+        'التطبيق الأخرى (ولوحة الأستاذ إن كانت مفتوحة) ثم أعد المحاولة. '
+        'الملفات المستخدمة: sqlite3Uri=$sqlite3Uri، '
         'driftWorkerUri=$driftWorkerUri',
       ),
     );

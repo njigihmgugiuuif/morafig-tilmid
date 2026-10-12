@@ -24,8 +24,8 @@ class _ManageImportedScreenState extends State<ManageImportedScreen> {
     final ok = await confirmDialog(
       context,
       title: 'تأكيد الحذف',
-      message: 'سيُحذف «${item.lesson.title}» من جهازك. يمكنك استيراده مرة '
-          'أخرى متى توفّر الملف. مهامك وإتقانك وذاكرتك لا تتأثر.',
+      message: 'سيُحذف «${item.lesson.title}» من جهازك. يمكنك إضافته مرة '
+          'أخرى متى توفّر الملف أو بتحديثه من الإنترنت. مهامك وإتقانك وذاكرتك لا تتأثر.',
       confirmLabel: 'احذف',
     );
     if (!ok || !mounted) return;
@@ -49,7 +49,7 @@ class _ManageImportedScreenState extends State<ManageImportedScreen> {
   Widget build(BuildContext context) {
     final repo = context.read<AppState>().teacherRepository;
     return Scaffold(
-      appBar: AppBar(title: const Text('إدارة المحتوى المستورد')),
+      appBar: AppBar(title: const Text('دروسي على هذا الجهاز')),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -57,7 +57,7 @@ class _ManageImportedScreenState extends State<ManageImportedScreen> {
             AsyncSection<List<LessonListItem>>(
               future: repo.listImported,
               isEmpty: (d) => d.isEmpty,
-              emptyMessage: 'لا محتوى مستوردًا.',
+              emptyMessage: 'لا دروس محفوظة على جهازك.',
               emptyIcon: Icons.storage_outlined,
               builder: (context, items) {
                 final used = items.fold<int>(0, (s, i) => s + i.bytes);
