@@ -18,7 +18,17 @@ const List<int> kInternalLevels = [1, 2, 3];
 bool isValidInternalLevel(int? level) =>
     level != null && kInternalLevels.contains(level);
 
-String internalLevelLabel(int level) => 'المستوى $level';
+String internalLevelLabel(int level) {
+  switch (level) {
+    case 1:
+      return 'الأولى ثانوي';
+    case 2:
+      return 'الثانية ثانوي';
+    case 3:
+      return 'الثالثة ثانوي';
+  }
+  return 'مستوى غير معروف';
+}
 
 enum LessonStatus {
   draft,
@@ -114,7 +124,7 @@ List<LessonIssue> validateLessonFields({
   }
   if (!isValidInternalLevel(internalLevel)) {
     issues.add(const LessonIssue(
-        'level_invalid', 'اختر المستوى 1 أو 2 أو 3.'));
+        'level_invalid', 'اختر مستوى الدرس: الأولى أو الثانية أو الثالثة ثانوي.'));
   }
   if (teacherName.trim().isEmpty) {
     issues.add(const LessonIssue('teacher_required', 'اسم الأستاذ مطلوب.'));

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -12,6 +13,18 @@ import 'package:flutter/services.dart';
 /// [canPopNormally] lets the shell say "no, handle this back press
 /// yourself" (e.g. to switch bottom-nav tabs back to Home first) before
 /// the exit-confirmation logic even runs.
+/// Closes the app where the platform lets an app close itself.
+///
+/// On the web (the PWA) this does nothing and returns false: asking the
+/// browser engine to "pop" the last page tears down its history handling and
+/// leaves the page alive but dead to the back button. On the web the user
+/// leaves with the phone's home button or by closing the tab.
+bool exitAppIfPossible() {
+  if (kIsWeb) return false;
+  SystemNavigator.pop();
+  return true;
+}
+
 class ExitConfirmScope extends StatefulWidget {
   const ExitConfirmScope({
     super.key,
@@ -47,7 +60,17 @@ class _ExitConfirmScopeState extends State<ExitConfirmScope> {
         final now = DateTime.now();
         final last = _lastBackPressTime;
         if (last != null && now.difference(last) < const Duration(seconds: 2)) {
-          SystemNavigator.pop();
+          if (exitAppIfPossible()) return;
+          // Web/PWA: cannot close itself; say how to leave instead.
+          ScaffoldMessenger.of(context).clearSnackBars();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                  'للخروج اضغط زر الصفحة الرئيسية في هاتفك أو أغلق التبويب. بياناتك محفوظة.'),
+              duration: Duration(seconds: 3),
+            ),
+          );
+          _lastBackPressTime = null;
           return;
         }
 

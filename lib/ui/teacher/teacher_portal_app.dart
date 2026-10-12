@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
+import '../widgets/exit_confirm_scope.dart';
 import 'teacher_entry_screen.dart';
 
 /// True when the browser address asks for the teacher panel:
@@ -54,7 +55,10 @@ class _TeacherPortalAppState extends State<TeacherPortalApp> {
         // Any address (including the browser's «/teacher») opens the entry.
         initialRoute: '/',
         onGenerateRoute: (_) => MaterialPageRoute<void>(
-          builder: (_) => const TeacherEntryScreen(),
+          builder: (_) => ExitConfirmScope(
+            onBackPressed: () => true,
+            child: const TeacherEntryScreen(),
+          ),
         ),
       ),
     );

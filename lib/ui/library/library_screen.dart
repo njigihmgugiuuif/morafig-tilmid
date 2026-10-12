@@ -42,6 +42,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
   int? _myPath;
   bool _syncing = false;
   String? _syncMessage;
+  List<String> _diagnosis = const [];
+  bool _diagnosing = false;
 
   @override
   void initState() {
@@ -89,13 +91,41 @@ class _LibraryScreenState extends State<LibraryScreen> {
       setState(() {
         _syncMessage = report.errors.isEmpty
             ? 'اكتمل التحديث: ${report.summary}'
-            : 'اكتمل جزئيًا: ${report.summary}';
+            : 'اكتمل جزئيًا: ${report.summary}\n${report.errors.join('\n')}';
       });
     } on RemoteException catch (e) {
       // Offline or server problem: the lessons already on the device stay.
-      if (mounted && !silent) setState(() => _syncMessage = e.message);
+      // A silent (automatic) run stays quiet only for plain connectivity
+      // problems; any other server problem is shown so it is never hidden.
+      final offline = e.message.contains('تعذّر الاتصال') ||
+          e.message.contains('انتهت مهلة');
+      if (mounted && (!silent || !offline)) {
+        setState(() => _syncMessage = e.message);
+      }
     } finally {
       if (mounted) setState(() => _syncing = false);
+    }
+  }
+
+  Future<void> _diagnose() async {
+    final level = _myPath;
+    if (level == null || _diagnosing) return;
+    final remote = context.read<AppState>().lessonRemote;
+    setState(() {
+      _diagnosing = true;
+      _diagnosis = const [];
+    });
+    List<String> lines;
+    try {
+      lines = await remote.diagnose(level);
+    } catch (e) {
+      lines = ['✗ فشل الفحص: $e'];
+    }
+    if (mounted) {
+      setState(() {
+        _diagnosis = lines;
+        _diagnosing = false;
+      });
     }
   }
 
@@ -164,6 +194,18 @@ class _LibraryScreenState extends State<LibraryScreen> {
                     block: true,
                     onPressed: (_syncing || _myPath == null) ? null : _sync,
                   ),
+                  TextButton.icon(
+                    onPressed:
+                        (_diagnosing || _myPath == null) ? null : _diagnose,
+                    icon: const Icon(Icons.network_check),
+                    label: Text(_diagnosing ? 'جارٍ الفحص…' : 'افحص الاتصال'),
+                  ),
+                  for (final line in _diagnosis)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(line,
+                          style: MqType.small.copyWith(color: context.mq.ink)),
+                    ),
                   if (_syncMessage != null) ...[
                     const SizedBox(height: 6),
                     Text(_syncMessage!,

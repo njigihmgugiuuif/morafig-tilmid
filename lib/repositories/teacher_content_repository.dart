@@ -321,7 +321,7 @@ class TeacherContentRepository {
   }
 
   /// Records that a package of this lesson was handed out (for the account
-  /// screen's «الحزم المصدّرة»). Does not change status or content.
+  /// screen's «الملفات المصدّرة»). Does not change status or content.
   Future<void> markExported(String lessonId) async {
     final lesson = await _requireLesson(lessonId);
     await (_db.update(_db.teacherLessons)..where((t) => t.id.equals(lessonId)))
@@ -509,7 +509,7 @@ class TeacherContentRepository {
   }) async {
     if (!isValidInternalLevel(internalLevel)) {
       throw TeacherContentException.single(
-          'level_invalid', 'مستوى الدرس في الحزمة غير صالح.');
+          'level_invalid', 'مستوى الدرس في الملف غير صالح.');
     }
     return _db.transaction(() async {
       final now = DateTime.now().toUtc();

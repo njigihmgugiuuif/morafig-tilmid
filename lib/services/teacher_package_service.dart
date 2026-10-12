@@ -289,13 +289,13 @@ class TeacherPackageService {
         decoded['format'] != kPackageFormat) {
       return const PackagePreview(
           kind: PackageKind.corrupt,
-          message: 'هذا الملف ليس حزمة درس من أستاذ. بياناتك لم تُمَس.');
+          message: 'هذا الملف ليس ملف دروس من أستاذ. بياناتك لم تُمَس.');
     }
     final version = decoded['formatVersion'];
     if (version is! int || version != kPackageFormatVersion) {
       return PackagePreview(
           kind: PackageKind.unsupported,
-          message: 'صيغة الحزمة ($version) غير مدعومة في هذه النسخة.');
+          message: 'صيغة ملف الدروس ($version) غير مدعومة في هذه النسخة.');
     }
 
     final PackageContent content;
@@ -304,7 +304,7 @@ class TeacherPackageService {
     } on FormatException catch (e) {
       return PackagePreview(
           kind: PackageKind.corrupt,
-          message: 'الحزمة تالفة: ${e.message}. بياناتك لم تُمَس.');
+          message: 'ملف الدروس تالف: ${e.message}. بياناتك لم تُمَس.');
     }
 
     final fingerprint = fingerprintOf(content);
@@ -312,7 +312,7 @@ class TeacherPackageService {
     if (stated is! String || stated != fingerprint) {
       return const PackagePreview(
           kind: PackageKind.corrupt,
-          message: 'بصمة الحزمة لا تطابق محتواها: الملف تالف أو عُدّل. '
+          message: 'بصمة ملف الدروس لا تطابق محتواه: الملف تالف أو عُدّل. '
               'بياناتك لم تُمَس.');
     }
 
@@ -320,7 +320,7 @@ class TeacherPackageService {
     if (dup != null) {
       return PackagePreview(
         kind: PackageKind.duplicate,
-        message: 'هذه الحزمة موجودة بنفس البصمة، فلن تُضاف مرتين.',
+        message: 'هذا الملف موجود عندك بنفس البصمة، فلن تُضاف مرتين.',
         content: content,
         fingerprint: fingerprint,
         existingVersion: dup.versionNumber,
@@ -333,7 +333,7 @@ class TeacherPackageService {
       if (content.versionNumber > same.versionNumber) {
         return PackagePreview(
           kind: PackageKind.newerVersion,
-          message: 'عندك الإصدار ${same.versionNumber}، وهذه الحزمة الإصدار '
+          message: 'عندك الإصدار ${same.versionNumber}، وهذا الملف الإصدار '
               '${content.versionNumber}. تحديثها يستبدل محتوى الدرس فقط.',
           content: content,
           fingerprint: fingerprint,
@@ -345,7 +345,7 @@ class TeacherPackageService {
         return PackagePreview(
           kind: PackageKind.olderVersion,
           message: 'عندك الإصدار ${same.versionNumber} وهو أحدث من هذه '
-              'الحزمة (${content.versionNumber}). لم يُغيَّر شيء.',
+              'الملف (${content.versionNumber}). لم يُغيَّر شيء.',
           content: content,
           fingerprint: fingerprint,
           existingVersion: same.versionNumber,
@@ -355,7 +355,7 @@ class TeacherPackageService {
       return PackagePreview(
         kind: PackageKind.sameVersionConflict,
         message: 'عندك الدرس نفسه بالإصدار نفسه لكن بمحتوى مختلف. '
-            'رُفضت الحزمة ولم يُغيَّر شيء.',
+            'رُفض الملف ولم يُغيَّر شيء.',
         content: content,
         fingerprint: fingerprint,
         existingVersion: same.versionNumber,
@@ -365,7 +365,7 @@ class TeacherPackageService {
 
     return PackagePreview(
       kind: PackageKind.fresh,
-      message: 'حزمة جديدة: ستُضاف إلى مكتبتك.',
+      message: 'ملف جديد: ستُضاف إلى مكتبتك.',
       content: content,
       fingerprint: fingerprint,
     );
@@ -438,7 +438,7 @@ class TeacherPackageService {
 
     final rawPages = m['pages'];
     if (rawPages is! List || rawPages.isEmpty) {
-      throw const FormatException('لا صفحات في الحزمة');
+      throw const FormatException('لا صفحات في ملف الدروس');
     }
     final pages = <PackagePage>[];
     for (var i = 0; i < rawPages.length; i++) {

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -13,6 +14,7 @@ import 'design/logo.dart';
 import 'design/primitives.dart';
 import 'design/states.dart';
 import 'theme/app_theme.dart';
+import 'widgets/exit_confirm_scope.dart';
 
 /// Root widget.
 ///
@@ -137,14 +139,16 @@ class _BootstrapErrorScreen extends StatelessWidget {
                       'تكرر ذلك فأرسل النص الظاهر أدناه.',
                   detail: '$error',
                 ),
-                const SizedBox(height: 16),
-                MqButton(
-                  label: 'إغلاق',
-                  icon: Icons.close,
-                  kind: MqButtonKind.secondary,
-                  block: true,
-                  onPressed: () => SystemNavigator.pop(),
-                ),
+                if (!kIsWeb) ...[
+                  const SizedBox(height: 16),
+                  MqButton(
+                    label: 'إغلاق',
+                    icon: Icons.close,
+                    kind: MqButtonKind.secondary,
+                    block: true,
+                    onPressed: exitAppIfPossible,
+                  ),
+                ],
               ],
             ),
           ),

@@ -18,3 +18,8 @@ Future<List<DeviceFile>> pickAnyFiles({String accept = '*/*'}) async =>
 Future<bool> saveBytesAs(
         String fileName, Uint8List bytes, String mimeType) async =>
     false;
+
+/// No compression without a browser: the bytes are returned unchanged.
+Future<Uint8List> compressImage(Uint8List bytes,
+        {int maxSide = 1600, double quality = 0.78}) async =>
+    bytes;

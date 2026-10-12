@@ -50,22 +50,10 @@
       return e.userChoice.then(function (c) { return c.outcome === 'accepted'; });
     };
   </script>
-  <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(function (registrations) {
-        for (const registration of registrations) {
-          registration.unregister();
-        }
-      });
-    }
-    if (window.caches) {
-      caches.keys().then(function (names) {
-        for (const name of names) {
-          caches.delete(name);
-        }
-      });
-    }
-  </script>
+  <!-- Offline use: Flutter's own service worker (registered by
+       flutter_bootstrap.js) keeps the app files on the device after the first
+       visit, so the app opens without internet. It was previously removed here
+       at every load, which made offline opening impossible. -->
 
   <div id="app-loading" style="
       position:fixed; inset:0; display:flex; flex-direction:column;

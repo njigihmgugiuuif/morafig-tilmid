@@ -197,7 +197,7 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
         if (sniffImageMime(f.bytes) == null) {
           rejected++;
         } else {
-          _pages.add(_PageDraft(f.bytes));
+          _pages.add(_PageDraft(await compressImage(f.bytes)));
         }
       }
       if (files.isNotEmpty) {

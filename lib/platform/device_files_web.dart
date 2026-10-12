@@ -74,3 +74,49 @@ Future<bool> saveBytesAs(
   html.Url.revokeObjectUrl(url);
   return true;
 }
+
+/// Shrinks a phone photo before it is stored or published: longest side at
+/// most [maxSide] px, re-encoded as JPEG. Phone photos are 3–8 MB each; a
+/// lesson of several pages would otherwise exceed what the shared storage
+/// accepts. The browser applies the photo's rotation (EXIF) when drawing.
+///
+/// Returns the ORIGINAL bytes whenever anything fails or the result would not
+/// be smaller, so a picture is never lost or made worse by this step.
+Future<Uint8List> compressImage(Uint8List bytes,
+    {int maxSide = 1600, double quality = 0.78}) async {
+  String? url;
+  try {
+    url = html.Url.createObjectUrlFromBlob(html.Blob([bytes]));
+    final img = html.ImageElement(src: url);
+    await img.onLoad.first.timeout(const Duration(seconds: 20));
+    final w = img.naturalWidth;
+    final h = img.naturalHeight;
+    if (w <= 0 || h <= 0) return bytes;
+    final longest = w > h ? w : h;
+    final scale = longest > maxSide ? maxSide / longest : 1.0;
+    final cw = (w * scale).round();
+    final ch = (h * scale).round();
+    final canvas = html.CanvasElement(width: cw, height: ch);
+    final ctx = canvas.context2D;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, cw, ch);
+    ctx.drawImageScaled(img, 0, 0, cw, ch);
+    final blob = await canvas.toBlob('image/jpeg', quality);
+    final reader = html.FileReader()..readAsArrayBuffer(blob);
+    await reader.onLoadEnd.first;
+    final r = reader.result;
+    final Uint8List out;
+    if (r is Uint8List) {
+      out = r;
+    } else if (r is ByteBuffer) {
+      out = Uint8List.view(r);
+    } else {
+      return bytes;
+    }
+    return (out.isNotEmpty && out.length < bytes.length) ? out : bytes;
+  } catch (_) {
+    return bytes;
+  } finally {
+    if (url != null) html.Url.revokeObjectUrl(url);
+  }
+}

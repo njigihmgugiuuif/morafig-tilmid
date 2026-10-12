@@ -270,6 +270,82 @@ void main() {
     expect(await studentRepo.listImported(), isEmpty);
   });
 
+  group('proof of delivery', () {
+    Future<(String id, String fp)> published(int level) async {
+      final id = await publishedLesson(level);
+      await publish(id);
+      return (id, server.rows[id]!['fingerprint'] as String);
+    }
+
+    test('read-back proves the lesson and its pages are on the server',
+        () async {
+      final (id, fp) = await published(2);
+      final check = await remote.verifyPublished(
+          originLessonId: id, level: 2, fingerprint: fp, expectedPages: 2);
+      expect(check.pages, 2);
+      expect(check.bytes, greaterThan(0));
+    });
+
+    test('a lesson missing from the level list is reported with the count',
+        () async {
+      final (id, fp) = await published(2);
+      server.rows.remove(id);
+      expect(
+          () => remote.verifyPublished(
+              originLessonId: id, level: 2, fingerprint: fp, expectedPages: 2),
+          throwsA(isA<RemoteException>()
+              .having((e) => e.message, 'message', contains('لا يظهر'))));
+    });
+
+    test('wrong page count is reported, not accepted', () async {
+      final (id, fp) = await published(1);
+      expect(
+          () => remote.verifyPublished(
+              originLessonId: id, level: 1, fingerprint: fp, expectedPages: 5),
+          throwsA(isA<RemoteException>()
+              .having((e) => e.message, 'message', contains('بدل 5'))));
+    });
+
+    test('a fingerprint that differs from the server copy is reported',
+        () async {
+      final (id, _) = await published(1);
+      expect(
+          () => remote.verifyPublished(
+              originLessonId: id,
+              level: 1,
+              fingerprint: 'other',
+              expectedPages: 2),
+          throwsA(isA<RemoteException>()));
+    });
+
+    test('student sync reports how many pages (photos) arrived', () async {
+      await publish(await publishedLesson(3));
+      final report = await LessonSyncService(remote, studentRepo).syncLevel(3);
+      expect(report.pagesReceived, 2);
+      expect(report.summary, contains('وصلت 2 صفحة'));
+    });
+
+    test('connection check shows each step as ✓', () async {
+      await publish(await publishedLesson(1));
+      final lines = await remote.diagnose(1);
+      expect(lines.where((l) => l.startsWith('✓')).length, 3);
+      expect(lines.any((l) => l.startsWith('✗')), isFalse);
+    });
+
+    test('connection check on an empty level says so', () async {
+      final lines = await remote.diagnose(2);
+      expect(lines.first, startsWith('✓'));
+      expect(lines.last, contains('لا درس منشور'));
+    });
+
+    test('connection check offline stops at the first failing step', () async {
+      server.offline = true;
+      final lines = await remote.diagnose(1);
+      expect(lines, hasLength(1));
+      expect(lines.single, startsWith('✗'));
+    });
+  });
+
   test('teacher password session is memory-only and clearable', () {
     final s = TeacherRemoteSession();
     expect(s.signedIn, isFalse);

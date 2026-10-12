@@ -1,6 +1,5 @@
 import 'package:drift/drift.dart' show OrderingTerm;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../database/app_database.dart';
@@ -17,6 +16,7 @@ import '../design/states.dart';
 import '../design/tokens.dart';
 import '../state/app_state.dart';
 import '../widgets/backup_restore_flow.dart';
+import '../widgets/exit_confirm_scope.dart';
 
 enum _GoalKind { exam, general, later }
 
@@ -116,7 +116,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         ],
       ),
     );
-    if (leave == true) SystemNavigator.pop();
+    if (leave == true && !exitAppIfPossible() && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text(
+            'تقدّمك محفوظ. اضغط زر الصفحة الرئيسية في هاتفك أو أغلق التبويب.'),
+      ));
+    }
   }
 
   // --------------------------------------------------------------- finish

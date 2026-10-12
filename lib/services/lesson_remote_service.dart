@@ -215,7 +215,102 @@ class LessonRemoteService {
     return utf8.decode(res.bodyBytes);
   }
 
+  /// Proof that a published lesson really is on the shared storage: it must
+  /// be listed under its level, its file must download, and the file must
+  /// carry the same fingerprint and the same number of pages. Every failing
+  /// step has its own message so the cause is visible, never a silent "ok".
+  Future<PublishCheck> verifyPublished({
+    required String originLessonId,
+    required int level,
+    required String fingerprint,
+    required int expectedPages,
+  }) async {
+    final listed = await list(level: level);
+    RemoteLessonEntry? entry;
+    for (final e in listed) {
+      if (e.originLessonId == originLessonId) {
+        entry = e;
+        break;
+      }
+    }
+    if (entry == null) {
+      throw RemoteException(
+          'رُفع الدرس لكنه لا يظهر في قائمة المستوى $level على الخادم '
+          '(عدد دروس هذا المستوى الآن: ${listed.length}).');
+    }
+    if (entry.fingerprint != fingerprint) {
+      throw const RemoteException(
+          'الدرس موجود على الخادم لكن بصمته لا تطابق ما أرسلته.');
+    }
+    final text = await downloadPackage(entry.packagePath);
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(text);
+    } on FormatException {
+      throw const RemoteException(
+          'نُزّل ملف الدرس من الخادم لكنه غير مقروء.');
+    }
+    final pages = decoded is Map<String, dynamic> && decoded['pages'] is List
+        ? (decoded['pages'] as List).length
+        : -1;
+    if (decoded is! Map<String, dynamic> ||
+        decoded['fingerprint'] != fingerprint) {
+      throw const RemoteException(
+          'الملف الذي على الخادم لا يطابق الدرس المرسَل (البصمة مختلفة).');
+    }
+    if (pages != expectedPages) {
+      throw RemoteException(
+          'وصل الدرس بـ $pages صفحة بدل $expectedPages.');
+    }
+    return PublishCheck(pages: pages, bytes: utf8.encode(text).length);
+  }
+
+  /// Step-by-step connection test for one level path, in plain Arabic.
+  /// Each line starts with ✓ or ✗ so a screenshot shows exactly where it stops.
+  Future<List<String>> diagnose(int level) async {
+    final out = <String>[];
+    if (!configured) {
+      return const ['✗ عنوان الخادم غير مضبوط في هذه النسخة.'];
+    }
+    List<RemoteLessonEntry> listed;
+    try {
+      listed = await list(level: level);
+      out.add('✓ الاتصال بالخادم وقراءة القائمة نجحا.');
+      out.add('✓ عدد الدروس المنشورة في المستوى $level: ${listed.length}.');
+    } on RemoteException catch (e) {
+      out.add('✗ قراءة القائمة: ${e.message}');
+      return out;
+    }
+    if (listed.isEmpty) {
+      out.add('• لا درس منشور في هذا المستوى بعد، فلا شيء لتنزيله.');
+      return out;
+    }
+    final first = listed.first;
+    try {
+      final text = await downloadPackage(first.packagePath);
+      final d = jsonDecode(text);
+      final pages = d is Map<String, dynamic> && d['pages'] is List
+          ? (d['pages'] as List).length
+          : 0;
+      final mb = (utf8.encode(text).length / 1048576).toStringAsFixed(2);
+      out.add('✓ تنزيل «${first.title}» نجح: $pages صفحة، $mb ميغابايت.');
+    } on RemoteException catch (e) {
+      out.add('✗ تنزيل «${first.title}»: ${e.message}');
+    } on FormatException {
+      out.add('✗ ملف «${first.title}» نُزّل لكنه غير مقروء.');
+    }
+    return out;
+  }
+
   void close() => _client.close();
+}
+
+/// What a read-back of a published lesson proved.
+class PublishCheck {
+  const PublishCheck({required this.pages, required this.bytes});
+  final int pages;
+  final int bytes;
+  String get sizeLabel => '${(bytes / 1048576).toStringAsFixed(2)} ميغابايت';
 }
 
 /// The teachers' password kept IN MEMORY only, for the current visit to the
@@ -234,20 +329,25 @@ class SyncReport {
     this.updated = 0,
     this.unchanged = 0,
     this.failed = 0,
+    this.pagesReceived = 0,
     this.errors = const [],
   });
   final int added;
   final int updated;
   final int unchanged;
   final int failed;
+
+  /// Pages (photos) actually downloaded and stored in this run.
+  final int pagesReceived;
   final List<String> errors;
   int get total => added + updated + unchanged + failed;
   bool get changedAnything => added + updated > 0;
 
   String get summary {
-    if (total == 0) return 'لا دروس منشورة في مستواك حتى الآن.';
+    if (total == 0) return 'لا دروس منشورة في هذا المستوى على الخادم حتى الآن.';
     final parts = <String>[];
     if (added > 0) parts.add('أُضيف $added');
+    if (pagesReceived > 0) parts.add('وصلت $pagesReceived صفحة');
     if (updated > 0) parts.add('حُدّث $updated');
     if (unchanged > 0) parts.add('لم يتغيّر $unchanged');
     if (failed > 0) parts.add('تعذّر $failed');
@@ -269,7 +369,7 @@ class LessonSyncService {
 
   Future<SyncReport> syncLevel(int level) async {
     final entries = await _remote.list(level: level);
-    var added = 0, updated = 0, unchanged = 0, failed = 0;
+    var added = 0, updated = 0, unchanged = 0, failed = 0, pages = 0;
     final errors = <String>[];
     for (final e in entries) {
       try {
@@ -288,8 +388,10 @@ class LessonSyncService {
         switch (result.preview.kind) {
           case PackageKind.fresh:
             added++;
+            pages += result.preview.content?.pages.length ?? 0;
           case PackageKind.newerVersion:
             updated++;
+            pages += result.preview.content?.pages.length ?? 0;
           case PackageKind.duplicate:
           case PackageKind.olderVersion:
             unchanged++;
@@ -309,6 +411,7 @@ class LessonSyncService {
         updated: updated,
         unchanged: unchanged,
         failed: failed,
+        pagesReceived: pages,
         errors: errors);
   }
 }
