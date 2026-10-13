@@ -30,13 +30,25 @@
   <script>
     // «تثبيت التطبيق»: keep the browser's install prompt for the Flutter side.
     window.__mqDeferredInstall = null;
+    window.__mqInstallListeners = [];
+    function mqNotify() {
+      window.__mqInstallListeners.forEach(function (f) { try { f(); } catch (_) {} });
+    }
     window.addEventListener('beforeinstallprompt', function (e) {
       e.preventDefault();
       window.__mqDeferredInstall = e;
+      mqNotify();
     });
     window.addEventListener('appinstalled', function () {
       window.__mqDeferredInstall = null;
+      mqNotify();
     });
+    window.mqWatchInstall = function (cb) { window.__mqInstallListeners.push(cb); };
+    window.mqIsIos = function () {
+      var ua = window.navigator.userAgent || '';
+      return /iPad|iPhone|iPod/.test(ua) ||
+        (window.navigator.platform === 'MacIntel' && window.navigator.maxTouchPoints > 1);
+    };
     window.mqCanInstall = function () { return !!window.__mqDeferredInstall; };
     window.mqIsStandalone = function () {
       return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
