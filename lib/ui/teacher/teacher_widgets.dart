@@ -176,6 +176,7 @@ class LessonRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = item.lesson;
     final section = (l.sectionLabel ?? '').trim();
+    final track = (l.trackLabel ?? '').trim();
     final p = context.mq;
     return ListTile(
       onTap: onTap,
@@ -186,19 +187,33 @@ class LessonRow extends StatelessWidget {
       ),
       title: Text(l.title, style: const TextStyle(fontWeight: FontWeight.w700)),
       subtitle: Padding(
-        padding: const EdgeInsets.only(top: 4),
-        child: Wrap(
-          spacing: 6,
-          runSpacing: 4,
-          crossAxisAlignment: WrapCrossAlignment.center,
+        padding: const EdgeInsets.only(top: 6),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (showBadge) const TeacherBadge(),
+            // The class number and the stream are shown LARGE: this is what
+            // the student looks for first.
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                if (showBadge) const TeacherBadge(),
+                _BigTag(
+                  section.isEmpty ? 'القسم: غير محدد' : 'القسم: $section',
+                  strong: section.isNotEmpty,
+                ),
+                if (track.isNotEmpty) _BigTag(track),
+              ],
+            ),
+            const SizedBox(height: 6),
             Text('${l.subjectName} · ${internalLevelLabel(l.internalLevel)}',
-                style: const TextStyle(fontSize: 12.5)),
-            Text(section.isEmpty ? 'القسم: غير محدد' : 'القسم: $section',
-                style: TextStyle(fontSize: 12, color: p.ink2)),
-            Text('${item.pageCount} صفحات',
-                style: TextStyle(fontSize: 12, color: p.ink2)),
+                style: const TextStyle(fontSize: 13.5)),
+            const SizedBox(height: 2),
+            Text(
+                'الأستاذ: ${l.teacherName.trim().isEmpty ? 'غير مذكور' : l.teacherName}'
+                ' · ${pagesLabel(item.pageCount)}',
+                style: TextStyle(fontSize: 13, color: p.ink2)),
           ],
         ),
       ),
@@ -206,6 +221,38 @@ class LessonRow extends StatelessWidget {
           (showStatus
               ? LessonStatusChip(LessonStatus.fromDb(l.status))
               : null),
+    );
+  }
+}
+
+/// «صفحة واحدة / صفحتان / 5 صفحات / 12 صفحة» — correct Arabic number forms.
+String pagesLabel(int n) {
+  if (n == 1) return 'صفحة واحدة';
+  if (n == 2) return 'صفحتان';
+  if (n >= 3 && n <= 10) return '$n صفحات';
+  return '$n صفحة';
+}
+
+class _BigTag extends StatelessWidget {
+  const _BigTag(this.text, {this.strong = true});
+  final String text;
+  final bool strong;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.mq;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: strong ? p.brandSoft : p.surface2,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: strong ? p.brand : p.line),
+      ),
+      child: Text(text,
+          style: TextStyle(
+              fontSize: strong ? 17 : 14,
+              fontWeight: FontWeight.w800,
+              color: strong ? p.brandDeep : p.ink2)),
     );
   }
 }

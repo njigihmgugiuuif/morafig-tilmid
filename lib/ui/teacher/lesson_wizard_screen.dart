@@ -652,15 +652,15 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
         _field('اسم الأستاذ', _teacher),
         _field('ملاحظة للتلميذ (اختيارية)', _notes,
             maxLines: 3, hint: 'اكتب ما تريد أن ينتبه إليه التلميذ'),
+        _field('رقم القسم', _section, hint: 'مثال: 5'),
+        _field('الشعبة أو الجذع', _track,
+            hint: 'مثال: جذع مشترك علوم وتكنولوجيا، أو 1 علمي'),
         Card(
           child: ExpansionTile(
             title: const Text('تفاصيل إضافية (اختيارية)'),
             childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
             children: [
               _field('الوحدة أو الفصل', _unit),
-              _field('القسم (للتوضيح فقط)', _section,
-                  hint: 'مثال: 2 علوم تجريبية'),
-              _field('الشعبة', _track),
             ],
           ),
         ),
@@ -972,11 +972,13 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
                     style: const TextStyle(
                         fontSize: 17, fontWeight: FontWeight.w800)),
                 Text(
-                    '${_subject.text} · القسم: '
-                    '${_section.text.trim().isEmpty ? 'غير محدد' : _section.text} · '
-                    '${_teacher.text}',
+                    'القسم: ${_section.text.trim().isEmpty ? 'غير محدد' : _section.text.trim()}'
+                    '${_track.text.trim().isEmpty ? '' : ' · ${_track.text.trim()}'}',
+                    style: const TextStyle(
+                        fontSize: 17, fontWeight: FontWeight.w800)),
+                Text('${_subject.text} · الأستاذ: ${_teacher.text}',
                     style: TextStyle(
-                        fontSize: 12.5, color: context.mq.ink2)),
+                        fontSize: 13.5, color: context.mq.ink2)),
                 const SizedBox(height: 8),
                 SizedBox(
                   height: 70,

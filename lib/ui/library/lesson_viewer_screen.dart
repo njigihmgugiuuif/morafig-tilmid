@@ -134,14 +134,20 @@ class _LessonViewerScreenState extends State<LessonViewerScreen> {
           children: [
             const TeacherBadge(),
             Chip(label: Text(internalLevelLabel(l.internalLevel))),
-            Text(
-                '${l.subjectName} · القسم: '
-                '${(l.sectionLabel ?? '').trim().isEmpty ? 'غير محدد' : l.sectionLabel} · '
-                '${l.teacherName}',
-                style: TextStyle(
-                    fontSize: 12.5, color: context.mq.ink2)),
+            if ((l.sectionLabel ?? '').trim().isNotEmpty)
+              Chip(
+                  label: Text('القسم: ${l.sectionLabel!.trim()}',
+                      style: const TextStyle(
+                          fontSize: 17, fontWeight: FontWeight.w800))),
+            if ((l.trackLabel ?? '').trim().isNotEmpty)
+              Chip(label: Text(l.trackLabel!.trim())),
           ],
         ),
+        const SizedBox(height: 6),
+        Text(
+            '${l.subjectName} · الأستاذ: '
+            '${l.teacherName.trim().isEmpty ? 'غير مذكور' : l.teacherName}',
+            style: TextStyle(fontSize: 14, color: context.mq.ink2)),
         const SizedBox(height: 8),
         if (agg.pages.isEmpty)
           const Padding(
