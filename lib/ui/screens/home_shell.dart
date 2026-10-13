@@ -80,7 +80,7 @@ class _HomeShellState extends State<HomeShell> {
               DashboardScreen(onGoToTab: _goTo, active: _index == 0),
               TodayScreen(active: _index == 1),
               TasksHubScreen(active: _index == 2),
-              const ProgressScreen(),
+              ProgressScreen(active: _index == 3),
               const MoreScreen(),
             ],
           ),

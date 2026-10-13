@@ -13,6 +13,7 @@ import '../design/states.dart';
 import '../design/tokens.dart';
 import '../state/app_state.dart';
 import '../state/home_data.dart';
+import '../widgets/install_button.dart';
 import '../widgets/priority_views.dart';
 import 'now_screen.dart';
 import 'settings_screen.dart';
@@ -87,6 +88,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
         padding: const EdgeInsets.fromLTRB(MqSpace.screen, 12, MqSpace.screen, 28),
         children: [
           MqReveal(index: 0, child: _IdentityRow(onSettings: () => _open(const SettingsScreen()))),
+          const Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: Padding(
+              padding: EdgeInsets.only(top: 10),
+              child: InstallButton(),
+            ),
+          ),
           const SizedBox(height: 14),
           MqAsync<_HomeBundle>(
             reloadKey: '$_tick-${app.lastAppOpen.hashCode}',

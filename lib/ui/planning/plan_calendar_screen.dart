@@ -9,6 +9,7 @@ import '../design/primitives.dart';
 import '../design/states.dart';
 import '../design/tokens.dart';
 import '../state/app_state.dart';
+import '../state/progress_insights.dart' show kDayShortAr;
 
 /// «الشهر والسنة» (P01/P02): read-only. A week that has no stored plan shows
 /// «لم يُخطَّط بعد» — nothing is projected or invented for the future.
@@ -101,7 +102,7 @@ class _PlanCalendarScreenState extends State<PlanCalendarScreen> {
     final cells = <Widget>[
       for (final n in WeekCalendar.arabicDayNames)
         Center(
-            child: Text(n.substring(0, 2),
+            child: Text(kDayShortAr[WeekCalendar.arabicDayNames.indexOf(n)],
                 style: MqType.caption.copyWith(color: p.ink3))),
       for (var i = 0; i < lead; i++) const SizedBox.shrink(),
       for (var d = 1; d <= days; d++)

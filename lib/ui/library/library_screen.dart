@@ -160,7 +160,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   repo.listImported(level: _level, query: _search.text),
               isEmpty: (d) => d.isEmpty,
               emptyMessage:
-                  'لا دروس عندك بعد. اختر سنتك الدراسية ثم اضغط «حدّث الدروس من الإنترنت».',
+                  'لا دروس عندك بعد. اختر سنتك الدراسية وستصلك دروس أساتذتك تلقائيًا.',
               emptyIcon: Icons.menu_book_outlined,
               builder: (context, items) {
                 final bySubject = <String, List<LessonListItem>>{};

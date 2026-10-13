@@ -88,7 +88,7 @@ class MoreScreen extends StatelessWidget {
           icon: Icons.menu_book_outlined,
           tone: MqTone.brand,
           title: 'مكتبة الدروس',
-          subtitle: 'دروس أساتذتك، تُحدَّث من الإنترنت',
+          subtitle: 'دروس أساتذتك، تصلك تلقائيًا وتُفتح دون إنترنت',
           onTap: () => open(const LibraryScreen()),
         ),
         _Entry(

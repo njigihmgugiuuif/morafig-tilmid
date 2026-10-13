@@ -17,6 +17,7 @@ import '../design/states.dart';
 import '../design/tokens.dart';
 import '../widgets/unsaved_changes_scope.dart';
 import '../widgets/install_prompt.dart';
+import '../widgets/local_online_card.dart';
 
 /// Settings: edit the student's basic profile, back up / restore all data
 /// through the clipboard (fully offline), and an explicit, confirmed
@@ -256,6 +257,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 20),
           const MqSectionTitle('التطبيق'),
           const InstallAppTile(),
+          const SizedBox(height: 10),
+          const LocalVsOnlineCard(),
           const SizedBox(height: 20),
           const MqSectionTitle('النسخ الاحتياطي (بدون إنترنت)'),
           MqCard(

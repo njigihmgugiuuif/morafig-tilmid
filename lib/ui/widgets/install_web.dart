@@ -9,6 +9,12 @@ external bool _isStandalone();
 @JS('mqInstall')
 external JSPromise<JSBoolean> _install();
 
+@JS('mqIsIos')
+external bool _isIos();
+
+@JS('mqWatchInstall')
+external void _watch(JSFunction callback);
+
 bool canPromptInstall() {
   try {
     return _canInstall();
@@ -30,5 +36,23 @@ Future<bool> promptInstall() async {
     return (await _install().toDart).toDart;
   } catch (_) {
     return false;
+  }
+}
+
+bool isIos() {
+  try {
+    return _isIos();
+  } catch (_) {
+    return false;
+  }
+}
+
+/// Calls [onChange] when the browser's install state changes (the install
+/// prompt became available, or the app was installed).
+void watchInstall(void Function() onChange) {
+  try {
+    _watch(onChange.toJS);
+  } catch (_) {
+    // No watcher: the button simply keeps the state it had at first paint.
   }
 }

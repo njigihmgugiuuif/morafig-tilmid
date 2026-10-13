@@ -11,11 +11,14 @@ import '../design/charts.dart';
 import '../design/motion.dart';
 import '../design/primitives.dart';
 import '../design/progress.dart';
+import '../design/scroll_tabs.dart';
 import '../design/sheet.dart';
 import '../design/states.dart';
 import '../design/tokens.dart';
 import '../state/app_state.dart';
 import '../state/progress_data.dart';
+import '../state/progress_insights.dart';
+import 'progress_pages.dart';
 import '../widgets/unsaved_changes_scope.dart';
 
 class _NodeRow {
@@ -30,7 +33,11 @@ class _NodeRow {
 /// are never merged. Nothing is computed here, and an empty table says why it
 /// is empty instead of showing invented figures.
 class ProgressScreen extends StatefulWidget {
-  const ProgressScreen({super.key});
+  const ProgressScreen({super.key, this.active = true});
+
+  /// True while this tab is visible; the data is re-read when it becomes so.
+  final bool active;
+
   @override
   State<ProgressScreen> createState() => _ProgressScreenState();
 }
@@ -39,11 +46,23 @@ class _ProgressScreenState extends State<ProgressScreen> {
   int _page = 0;
   int _tick = 0;
 
+  /// Pages are built the first time they are opened, so the app start does
+  /// not read the data of seven pages the student may never look at.
+  final Set<int> _opened = {0};
+
+  @override
+  void didUpdateWidget(ProgressScreen old) {
+    super.didUpdateWidget(old);
+    if (widget.active && !old.active) _tick++;
+  }
+
   @override
   Widget build(BuildContext context) {
     final p = context.mq;
     final app = context.watch<AppState>();
     if (app.studentId == null) return const SizedBox.shrink();
+    Widget lazy(int i, Widget Function() build) =>
+        _opened.contains(i) ? build() : const SizedBox.shrink();
     return Column(
       children: [
         Padding(
@@ -57,10 +76,21 @@ class _ProgressScreenState extends State<ProgressScreen> {
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: MqSpace.screen),
-          child: MqSegmented<int>(
-            options: const {0: 'نظرة', 1: 'الإتقان', 2: 'الذاكرة', 3: 'الأخطاء'},
+          child: MqScrollTabs<int>(
+            options: const {
+              0: 'نظرة',
+              1: 'الإتقان',
+              2: 'الذاكرة',
+              3: 'الوقت',
+              4: 'الأولويات',
+              5: 'الأهداف',
+              6: 'الأخطاء',
+            },
             selected: _page,
-            onChanged: (v) => setState(() => _page = v),
+            onChanged: (v) => setState(() {
+              _page = v;
+              _opened.add(v);
+            }),
           ),
         ),
         const SizedBox(height: 8),
@@ -68,13 +98,18 @@ class _ProgressScreenState extends State<ProgressScreen> {
           child: MqTabStack(
             index: _page,
             children: [
-              _OverviewPage(app: app, reloadKey: _tick),
-              _MasteryPage(app: app, reloadKey: _tick),
-              _MemoryPage(app: app, reloadKey: _tick),
-              _ErrorsPage(
-                  app: app,
-                  reloadKey: _tick,
-                  onChanged: () => setState(() => _tick++)),
+              lazy(0, () => _OverviewPage(app: app, reloadKey: _tick)),
+              lazy(1, () => _MasteryPage(app: app, reloadKey: _tick)),
+              lazy(2, () => _MemoryPage(app: app, reloadKey: _tick)),
+              lazy(3, () => TimePage(app: app, reloadKey: _tick)),
+              lazy(4, () => PrioritiesPage(app: app, reloadKey: _tick)),
+              lazy(5, () => GoalsPage(app: app, reloadKey: _tick)),
+              lazy(
+                  6,
+                  () => _ErrorsPage(
+                      app: app,
+                      reloadKey: _tick,
+                      onChanged: () => setState(() => _tick++))),
             ],
           ),
         ),
@@ -145,6 +180,14 @@ class _MasteryPage extends StatelessWidget {
                   'النسبة هي تقدير الإتقان، والثقة رقم منفصل عنها يخبرك كم نثق بالتقدير.',
             ),
             const SizedBox(height: 12),
+            MqAsync<List<SubjectMastery>>(
+              reloadKey: reloadKey,
+              load: () => ProgressInsights(app.db).subjectMastery(app.studentId!),
+              loading: const SizedBox.shrink(),
+              errorTitle: 'تعذّر عرض المقارنة بين المواد',
+              builder: (context, subjects) =>
+                  SubjectMasteryChart(subjects: subjects),
+            ),
             for (final e in bySubject.entries) ...[
               MqSectionTitle(e.key),
               for (final r in e.value)
@@ -395,6 +438,15 @@ class _MemoryPage extends StatelessWidget {
           padding:
               const EdgeInsets.fromLTRB(MqSpace.screen, 4, MqSpace.screen, 28),
           children: [
+            MqAsync<ReviewForecast>(
+              reloadKey: reloadKey,
+              load: () =>
+                  ProgressInsights(app.db).reviewForecast(app.studentId!, DateTime.now()),
+              loading: const SizedBox.shrink(),
+              errorTitle: 'تعذّر عرض المراجعات القادمة',
+              builder: (context, f) =>
+                  ReviewForecastChart(forecast: f, now: DateTime.now()),
+            ),
             MqSectionTitle('مستحقة الآن (${due.length})'),
             if (due.isEmpty)
               const MqBanner(
