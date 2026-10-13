@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: sitemap.xml
+Sitemap: https://njigihmgugiuuif.github.io/morafig-tilmid/sitemap.xml
