@@ -7,6 +7,9 @@ import 'package:provider/provider.dart';
 import '../../export_import/export_import_service.dart';
 import '../../repositories/reset_repository.dart';
 import '../../repositories/student_repository.dart';
+import '../../services/student_setup_store.dart';
+import '../../services/teacher_session.dart';
+import 'study_setup_section.dart';
 import '../state/app_state.dart';
 import '../design/page.dart';
 import '../design/primitives.dart';
@@ -182,6 +185,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     // Teacher lessons live in their own database (DEVIATION-23): "reset all
     // data" removes them too.
     await appState.teacherDb.wipeAll();
+    // Device-local choices: year, stream and any unfinished registration.
+    final kv = SharedPrefsKeyValueStore();
+    await StudentSetupStore(kv).clear();
+    await OnboardingDraftStore(kv).clear();
     await appState.clearStudent();
     nav.popUntil((route) => route.isFirst);
   }
@@ -244,6 +251,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           const SizedBox(height: 20),
+          const MqSectionTitle('سنتي وشعبتي والتزاماتي'),
+          const StudySetupSection(),
+          const SizedBox(height: 20),
           const MqSectionTitle('التطبيق'),
           const InstallAppTile(),
           const SizedBox(height: 20),
@@ -284,8 +294,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'إعادة الضبط تحذف ملفك الدراسي وكل المهام والامتحانات '
-                  'والتقدم من هذا الجهاز نهائيًا.',
+                  'إعادة الضبط تحذف من هذا الجهاز نهائيًا: ملفك الدراسي، المهام، '
+                  'الامتحانات، التقدم، الخطة، التزاماتك وأوقاتك، سنتك وشعبتك، '
+                  'ودروس الأساتذة المحفوظة عندك. لا تمسّ أجهزة أخرى ولا الدروس '
+                  'المنشورة للتلاميذ.',
                   style: MqType.small.copyWith(color: p.ink),
                 ),
                 const SizedBox(height: 12),
@@ -332,8 +344,9 @@ class _ResetConfirmDialogState extends State<_ResetConfirmDialog> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const Text(
-            'سيُحذف كل شيء من هذا الجهاز نهائيًا ولا يمكن التراجع. احفظ '
-            'نسخة احتياطية أولًا إن أردت الاحتفاظ ببياناتك.',
+            'سيُحذف من هذا الجهاز نهائيًا: ملفك الدراسي، المهام، الامتحانات، '
+            'التقدم، الخطة، التزاماتك، سنتك وشعبتك، ودروس الأساتذة المحفوظة. '
+            'لا يمكن التراجع. احفظ نسخة احتياطية أولًا إن أردت الاحتفاظ ببياناتك.',
           ),
           const SizedBox(height: 12),
           TextField(

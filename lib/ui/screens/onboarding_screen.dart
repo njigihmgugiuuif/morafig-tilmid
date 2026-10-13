@@ -1,14 +1,17 @@
-import 'package:drift/drift.dart' show OrderingTerm;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../database/app_database.dart';
 import '../../domain/enums.dart';
+import '../../engines/weekly_timeline_engine.dart';
 import '../../repositories/content_repository.dart';
 import '../../repositories/exam_repository.dart';
 import '../../repositories/goal_repository.dart';
 import '../../repositories/student_repository.dart';
+import '../../repositories/weekly_template_repository.dart';
 import '../../services/intelligence_service.dart';
+import '../../services/student_setup_store.dart';
+import '../../services/teacher_session.dart';
 import '../design/logo.dart';
 import '../design/motion.dart';
 import '../design/primitives.dart';
@@ -24,11 +27,15 @@ enum _GoalKind { exam, general, later }
 /// Shown only when no Student row exists yet.
 ///
 ///   0  البداية        identity, promise, «ابدأ الآن», «لدي نسخة احتياطية»
-///   1  الاسم          1/4
-///   2  المسار         2/4  level and stream — only from rows that exist;
+///   1  الاسم          1/5
+///   2  السنة والشعبة  2/5  year (1/2/3 ثانوي) + stream/section as FREE text;
 ///                          «تخطي» is always available
-///   3  النوم          3/4  minimum sleep (the hard floor no plan may break)
-///   4  أول هدف        4/4  upcoming exam / general goal / later
+///   3  النوم          3/5  minimum sleep (the hard floor no plan may break)
+///   4  الالتزامات     4/5  recurring busy times the planner must respect
+///   5  أول هدف        5/5  upcoming exam / general goal / later
+///
+/// Progress is saved after every change (device storage), so closing the app
+/// and opening it again resumes where the student stopped.
 ///
 /// Nothing is assumed about the curriculum: the level list contains only what
 /// is stored, and a date or subject is entered by the student and kept as
@@ -48,41 +55,106 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final _subjectController = TextEditingController();
   final _goalTitleController = TextEditingController();
 
+  final _trackController = TextEditingController();
   int _sleepHours = 7;
-  String? _levelId;
-  String? _streamId;
+  int? _year;
+  final List<DraftCommitment> _commitments = [];
   _GoalKind _goalKind = _GoalKind.exam;
   DateTime? _goalDate;
   String? _stepError;
+  bool _resumed = false;
 
-  Future<List<EducationLevel>>? _levelsFuture;
+  final _draftStore = OnboardingDraftStore(SharedPrefsKeyValueStore());
+
+  @override
+  void initState() {
+    super.initState();
+    _restoreDraft();
+    for (final c in [
+      _nameController,
+      _subjectController,
+      _goalTitleController,
+      _trackController,
+    ]) {
+      c.addListener(_persist);
+    }
+  }
 
   @override
   void dispose() {
     _nameController.dispose();
     _subjectController.dispose();
     _goalTitleController.dispose();
+    _trackController.dispose();
     super.dispose();
+  }
+
+  // ------------------------------------------------------- saved progress
+
+  bool _restoring = false;
+
+  Future<void> _restoreDraft() async {
+    _restoring = true;
+    final d = await _draftStore.read();
+    if (!mounted) return;
+    if (d != null) {
+      setState(() {
+        _nameController.text = d.name;
+        _subjectController.text = d.subject;
+        _goalTitleController.text = d.goalTitle;
+        _trackController.text = d.track;
+        _sleepHours = d.sleepHours;
+        _year = d.year;
+        _commitments
+          ..clear()
+          ..addAll(d.commitments);
+        _goalKind = _GoalKind.values.firstWhere((k) => k.name == d.goalKind,
+            orElse: () => _GoalKind.exam);
+        _goalDate = d.goalDate;
+        if (d.step > 0) {
+          _step = d.step;
+          _resumed = true;
+        }
+      });
+    }
+    _restoring = false;
+  }
+
+  /// Saves everything typed so far. Failures are ignored: saving progress
+  /// must never block the journey.
+  void _persist() {
+    if (_restoring) return;
+    _draftStore
+        .write(OnboardingDraft(
+          step: _step,
+          name: _nameController.text,
+          sleepHours: _sleepHours,
+          year: _year,
+          track: _trackController.text,
+          commitments: List.of(_commitments),
+          goalKind: _goalKind.name,
+          subject: _subjectController.text,
+          goalTitle: _goalTitleController.text,
+          goalDate: _goalDate,
+        ))
+        .catchError((_) {});
   }
 
   // ------------------------------------------------------------------ nav
 
-  void _go(int step) => setState(() {
-        _stepError = null;
-        _step = step;
-      });
+  void _go(int step) {
+    setState(() {
+      _stepError = null;
+      _resumed = false;
+      _step = step;
+    });
+    _persist();
+  }
 
   void _next() {
     if (_step == 1 && _nameController.text.trim().isEmpty) {
       setState(() => _stepError = 'الرجاء إدخال اسمك.');
       return;
-    }
-    if (_step == 1) {
-      // Read the stored levels once, when the track step is first reached.
-      final db = context.read<AppState>().db;
-      _levelsFuture ??= (db.select(db.educationLevels)
-            ..orderBy([(t) => OrderingTerm.asc(t.order)]))
-          .get();
     }
     _go(_step + 1);
   }
@@ -101,8 +173,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text('الخروج من الإعداد الأولي؟'),
         content: const Text(
-          'لم يتم إنشاء ملفك الدراسي بعد. سيتعين عليك إكمال هذه '
-          'الخطوة عند فتح التطبيق مرة أخرى.',
+          'لم يكتمل إنشاء ملفك الدراسي بعد. ما أدخلته محفوظ، وستكمل '
+          'من حيث توقفت عند فتح التطبيق مرة أخرى.',
         ),
         actions: [
           TextButton(
@@ -134,7 +206,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       firstDate: DateTime(now.year, now.month, now.day),
       lastDate: DateTime(now.year + 2, 12, 31),
     );
-    if (picked != null && mounted) setState(() => _goalDate = picked);
+    if (picked != null && mounted) {
+      setState(() => _goalDate = picked);
+      _persist();
+    }
   }
 
   Future<void> _finish() async {
@@ -178,15 +253,29 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     //    everything here can be entered again later).
     final problems = <String>[];
 
-    if (_levelId != null) {
+    // Year and stream (free text) are kept on this device.
+    try {
+      await StudentSetupStore(SharedPrefsKeyValueStore()).save(StudentSetup(
+          year: _year, track: _trackController.text.trim()));
+      if (_year != null) appState.autoSync.trigger(force: true);
+    } catch (e) {
+      problems.add('السنة والشعبة: $e');
+    }
+
+    // Recurring busy times: stored for the planner (hard blocks).
+    final templates = WeeklyTemplateRepository(db);
+    for (final c in _commitments) {
       try {
-        await repo.setAcademicTrack(
+        await templates.insertFromUser(
           studentId: student.id,
-          educationLevelId: _levelId!,
-          streamId: _streamId,
+          dayOfWeek: c.day == 0 ? 7 : c.day,
+          startMinutes: c.startMinutes,
+          endMinutes: c.endMinutes,
+          kind: TimelineBlockKind.commitment,
+          label: c.label.trim().isEmpty ? null : c.label.trim(),
         );
       } catch (e) {
-        problems.add('المسار الدراسي: $e');
+        problems.add('التزام ${WeekCalendar.arabicDayNames[c.day]}: $e');
       }
     }
 
@@ -239,6 +328,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         duration: const Duration(seconds: 6),
       ));
     }
+    await _draftStore.clear();
     await appState.setStudentId(student.id);
   }
 
@@ -368,21 +458,27 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         body = _nameStep();
         break;
       case 2:
-        title = 'ما مسارك الدراسي؟';
-        subtitle = 'نستعمله لتنظيم موادك فقط. يمكنك تغييره أو تركه لاحقًا.';
-        body = _trackStep();
+        title = 'في أي سنة أنت؟';
+        subtitle = 'تصلك دروس أساتذتك لسنتك تلقائيًا. يمكنك تغييرها لاحقًا.';
+        body = _yearStep();
         break;
       case 3:
-        title = 'نومك ووقتك';
+        title = 'نومك';
         subtitle = 'نبني خطتك حول حياتك، لا العكس.';
         body = _sleepStep();
+        break;
+      case 4:
+        title = 'متى تكون مشغولًا؟';
+        subtitle = 'أدخل أوقاتك الثابتة (دروس خاصة، رياضة، التزامات) '
+            'حتى لا نضع لك دراسة فيها.';
+        body = _commitmentsStep();
         break;
       default:
         title = 'ما أول ما تريد الوصول إليه؟';
         subtitle = 'اختر ما يهمك الآن، وسنرتّب الأولويات حوله.';
         body = _goalStep();
     }
-    final isLast = _step == 4;
+    final isLast = _step == 5;
     return Scaffold(
       backgroundColor: p.bg,
       body: SafeArea(
@@ -401,7 +497,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   Expanded(
                     child: Row(
                       children: [
-                        for (var i = 1; i <= 4; i++)
+                        for (var i = 1; i <= 5; i++)
                           Expanded(
                             child: AnimatedContainer(
                               duration: MqMotion.of(context, MqMotion.base),
@@ -417,7 +513,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     ),
                   ),
                   const SizedBox(width: 14),
-                  MqNum('$_step/4',
+                  MqNum('$_step/5',
                       style: MqType.caption.copyWith(color: p.ink3)),
                 ],
               ),
@@ -436,6 +532,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         Text(subtitle,
                             style: MqType.small.copyWith(color: p.ink2)),
                         const SizedBox(height: 22),
+                        if (_resumed) ...[
+                          const MqBanner(
+                            icon: Icons.history_rounded,
+                            tone: MqTone.brand,
+                            text: 'أكملنا من حيث توقفت. ما أدخلته سابقًا محفوظ.',
+                          ),
+                          const SizedBox(height: 14),
+                        ],
                         body,
                         if (_stepError != null) ...[
                           const SizedBox(height: 12),
@@ -465,14 +569,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       )
                     : Row(
                         children: [
-                          if (_step == 2 || _step == 3) ...[
+                          if (_step >= 2 && _step <= 4) ...[
                             MqButton(
-                              label: _step == 2 ? 'تخطي' : 'لاحقًا',
+                              label: _step == 2
+                                  ? 'تخطي'
+                                  : (_step == 4 ? 'لا التزامات الآن' : 'لاحقًا'),
                               kind: MqButtonKind.ghost,
                               onPressed: () {
                                 if (_step == 2) {
-                                  _levelId = null;
-                                  _streamId = null;
+                                  _year = null;
+                                  _trackController.clear();
                                 }
                                 _next();
                               },
@@ -522,89 +628,244 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         const MqBanner(
           icon: Icons.info_outline_rounded,
           tone: MqTone.neutral,
-          text: 'سنسأل عن مسارك ونومك وأول هدف، وكلها قابلة للتغيير لاحقًا '
-              'من الإعدادات.',
+          text: 'سنسأل عن سنتك وشعبتك ونومك وأوقات انشغالك وأول هدف، وكلها '
+              'قابلة للتغيير لاحقًا من الإعدادات.',
         ),
       ],
     );
   }
 
-  Widget _trackStep() {
-    final db = context.read<AppState>().db;
+  Widget _yearStep() {
+    final p = context.mq;
+    const labels = {1: 'الأولى ثانوي', 2: 'الثانية ثانوي', 3: 'الثالثة ثانوي'};
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        FutureBuilder<List<EducationLevel>>(
-          future: _levelsFuture,
-          builder: (context, snap) {
-            if (snap.connectionState != ConnectionState.done) {
-              return const MqLoadingCard(lines: 2);
-            }
-            final levels = snap.data ?? const <EducationLevel>[];
-            if (snap.hasError || levels.isEmpty) {
-              return const MqBanner(
-                icon: Icons.help_outline_rounded,
-                tone: MqTone.info,
-                title: 'لا قائمة مسارات بعد',
-                text: 'القوائم تحمل فقط ما أُدخل وتحقّق منه، ولا يوجد شيء '
-                    'منها على هذا الجهاز بعد. يمكنك المتابعة بدون تحديد، '
-                    'وستعمل الخطة بما تدخله أنت.',
-              );
-            }
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                DropdownButtonFormField<String>(
-                  value: _levelId,
-                  decoration:
-                      const InputDecoration(labelText: 'المستوى الدراسي'),
-                  items: [
-                    for (final l in levels)
-                      DropdownMenuItem(value: l.id, child: Text(l.name)),
-                  ],
-                  onChanged: (v) => setState(() {
-                    _levelId = v;
-                    _streamId = null;
-                  }),
+        for (final e in labels.entries)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: MqPressable(
+              onTap: () {
+                setState(() => _year = e.key);
+                _persist();
+              },
+              child: Container(
+                constraints: const BoxConstraints(minHeight: 64),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: _year == e.key ? p.brandSoft : p.surface,
+                  borderRadius: BorderRadius.circular(MqSpace.radiusButton),
+                  border: Border.all(
+                      color: _year == e.key ? p.brand : p.line,
+                      width: _year == e.key ? 2.5 : 1),
                 ),
-                const SizedBox(height: 12),
-                if (_levelId != null)
-                  FutureBuilder<List<StudyStream>>(
-                    future: (db.select(db.streams)
-                          ..where((t) => t.educationLevelId.equals(_levelId!)))
-                        .get(),
-                    builder: (context, s) {
-                      final streams = s.data ?? const <StudyStream>[];
-                      if (streams.isEmpty) {
-                        return const MqBanner(
-                          icon: Icons.info_outline_rounded,
-                          tone: MqTone.neutral,
-                          text: 'لا شعب مُدخلة لهذا المستوى. يمكنك المتابعة.',
-                        );
-                      }
-                      return DropdownButtonFormField<String>(
-                        value: _streamId,
-                        decoration: const InputDecoration(
-                            labelText: 'الشعبة / الخيار'),
-                        items: [
-                          for (final st in streams)
-                            DropdownMenuItem(
-                                value: st.id, child: Text(st.name)),
-                        ],
-                        onChanged: (v) => setState(() => _streamId = v),
-                      );
-                    },
-                  ),
-              ],
-            );
-          },
+                child: Row(
+                  children: [
+                    Icon(
+                        _year == e.key
+                            ? Icons.check_circle
+                            : Icons.circle_outlined,
+                        size: 28,
+                        color: _year == e.key ? p.brand : p.ink3),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(e.value,
+                          style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                              color: _year == e.key ? p.brandDeep : p.ink)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        const SizedBox(height: 6),
+        TextField(
+          controller: _trackController,
+          textInputAction: TextInputAction.done,
+          decoration: const InputDecoration(
+            labelText: 'الشعبة أو القسم (اكتبها بنفسك)',
+            hintText: 'مثال: جذع مشترك علوم وتكنولوجيا · 2 علوم تجريبية',
+            prefixIcon: Icon(Icons.edit_note_rounded),
+          ),
         ),
         const SizedBox(height: 16),
         const MqBanner(
           icon: Icons.verified_outlined,
           tone: MqTone.neutral,
-          text: 'لا نفترض لك منهجًا. المعاملات والساعات الرسمية لا تظهر في '
-              'التطبيق إلا إذا وُثّقت من مصدر رسمي.',
+          text: 'لا نفترض لك منهجًا ولا قائمة شعب. المعاملات والساعات الرسمية '
+              'لا تظهر في التطبيق إلا إذا وُثّقت من مصدر رسمي.',
+        ),
+      ],
+    );
+  }
+
+  String _fmt(int m) =>
+      '${(m ~/ 60).toString().padLeft(2, '0')}:${(m % 60).toString().padLeft(2, '0')}';
+
+  Future<void> _addCommitment() async {
+    var day = 0;
+    var start = 16 * 60;
+    var end = 17 * 60;
+    final label = TextEditingController();
+    String? err;
+    final saved = await showModalBottomSheet<DraftCommitment>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) => Padding(
+          padding: EdgeInsets.fromLTRB(
+              20, 20, 20, 20 + MediaQuery.of(ctx).viewInsets.bottom),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('إضافة وقت مشغول', style: MqType.h2),
+                const SizedBox(height: 12),
+                Wrap(spacing: 8, runSpacing: 8, children: [
+                  for (var i = 0; i < 7; i++)
+                    ChoiceChip(
+                      label: Text(WeekCalendar.arabicDayNames[i]),
+                      selected: day == i,
+                      onSelected: (_) => setSheet(() => day = i),
+                    ),
+                ]),
+                const SizedBox(height: 12),
+                Row(children: [
+                  Expanded(
+                    child: MqButton(
+                      label: 'من ${_fmt(start)}',
+                      icon: Icons.schedule_rounded,
+                      kind: MqButtonKind.secondary,
+                      onPressed: () async {
+                        final t = await showTimePicker(
+                            context: ctx,
+                            initialTime: TimeOfDay(
+                                hour: start ~/ 60, minute: start % 60));
+                        if (t != null) {
+                          setSheet(() => start = t.hour * 60 + t.minute);
+                        }
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: MqButton(
+                      label: 'إلى ${_fmt(end)}',
+                      icon: Icons.schedule_rounded,
+                      kind: MqButtonKind.secondary,
+                      onPressed: () async {
+                        final t = await showTimePicker(
+                            context: ctx,
+                            initialTime:
+                                TimeOfDay(hour: end ~/ 60, minute: end % 60));
+                        if (t != null) {
+                          setSheet(() => end = t.hour * 60 + t.minute);
+                        }
+                      },
+                    ),
+                  ),
+                ]),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: label,
+                  decoration: const InputDecoration(
+                      labelText: 'ما هو؟ (اختياري)',
+                      hintText: 'مثال: دروس خاصة، رياضة'),
+                ),
+                if (err != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(err!,
+                        style: TextStyle(color: Theme.of(ctx).colorScheme.error)),
+                  ),
+                const SizedBox(height: 14),
+                MqButton(
+                  label: 'أضف',
+                  block: true,
+                  onPressed: () {
+                    if (end <= start) {
+                      setSheet(() => err = 'وقت النهاية يجب أن يكون بعد البداية.');
+                      return;
+                    }
+                    Navigator.of(ctx).pop(DraftCommitment(
+                        day: day,
+                        startMinutes: start,
+                        endMinutes: end,
+                        label: label.text.trim()));
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    label.dispose();
+    if (saved != null && mounted) {
+      setState(() => _commitments.add(saved));
+      _persist();
+    }
+  }
+
+  Widget _commitmentsStep() {
+    final p = context.mq;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (_commitments.isEmpty)
+          const MqBanner(
+            icon: Icons.info_outline_rounded,
+            tone: MqTone.neutral,
+            text: 'لم تُضف شيئًا بعد. يمكنك المتابعة، وإضافة جدولك وأوقاتك '
+                'لاحقًا من «واقعي» في قائمة المزيد.',
+          )
+        else
+          for (var i = 0; i < _commitments.length; i++)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: MqCard(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                child: Row(
+                  children: [
+                    Icon(Icons.block_rounded, color: p.ink2),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        '${WeekCalendar.arabicDayNames[_commitments[i].day]} · '
+                        '${_fmt(_commitments[i].startMinutes)}–${_fmt(_commitments[i].endMinutes)}'
+                        '${_commitments[i].label.isEmpty ? '' : ' · ${_commitments[i].label}'}',
+                        style: MqType.body.copyWith(color: p.ink),
+                      ),
+                    ),
+                    MqIconButton(
+                      icon: Icons.close_rounded,
+                      label: 'احذف',
+                      onTap: () {
+                        setState(() => _commitments.removeAt(i));
+                        _persist();
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        const SizedBox(height: 8),
+        MqButton(
+          label: 'أضف وقتًا مشغولًا',
+          icon: Icons.add_rounded,
+          kind: MqButtonKind.secondary,
+          block: true,
+          onPressed: _addCommitment,
+        ),
+        const SizedBox(height: 16),
+        const MqBanner(
+          icon: Icons.lock_outline_rounded,
+          tone: MqTone.brand,
+          text: 'هذه الأوقات تُحفظ على جهازك، ولا يضع المخطِّط دراسة داخلها.',
         ),
       ],
     );
@@ -629,7 +890,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 icon: Icons.remove_rounded,
                 label: 'أنقص',
                 onTap: _sleepHours > 5
-                    ? () => setState(() => _sleepHours--)
+                    ? () {
+                        setState(() => _sleepHours--);
+                        _persist();
+                      }
                     : null,
               ),
               const SizedBox(width: 24),
@@ -645,7 +909,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 icon: Icons.add_rounded,
                 label: 'زِد',
                 onTap: _sleepHours < 10
-                    ? () => setState(() => _sleepHours++)
+                    ? () {
+                        setState(() => _sleepHours++);
+                        _persist();
+                      }
                     : null,
               ),
             ],
@@ -670,10 +937,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             _GoalKind.later: 'لاحقًا',
           },
           selected: _goalKind,
-          onChanged: (v) => setState(() {
-            _goalKind = v;
-            _stepError = null;
-          }),
+          onChanged: (v) {
+            setState(() {
+              _goalKind = v;
+              _stepError = null;
+            });
+            _persist();
+          },
         ),
         const SizedBox(height: 18),
         if (_goalKind == _GoalKind.later)
