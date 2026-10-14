@@ -33,6 +33,20 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('constitution introduces the app and states the AI model as a '
+      'future plan', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(400, 3600));
+    await tester.pumpWidget(_host(const ConstitutionScreen()));
+    expect(find.text('مرافق التلميذ'), findsWidgets);
+    expect(find.text(ConstitutionScreen.aiTitle), findsOneWidget);
+    expect(find.textContaining('لم يُنجَز بعد'), findsOneWidget);
+    await tester.tap(find.text('عن التطبيق'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AboutScreen), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('about screen says what the app is and is not, and opens the '
       'constitution', (tester) async {
     await tester.binding.setSurfaceSize(const Size(400, 2400));

@@ -17,6 +17,7 @@ import '../state/home_data.dart';
 import '../widgets/install_button.dart';
 import '../widgets/priority_views.dart';
 import 'now_screen.dart';
+import 'constitution_screen.dart';
 import 'settings_screen.dart';
 import 'task_detail_screen.dart';
 
@@ -256,6 +257,8 @@ class _Body extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         _TeacherLessonsCard(onTap: () => onOpen(const LibraryScreen())),
+        const SizedBox(height: 12),
+        _ConstitutionCard(onTap: () => onOpen(const ConstitutionScreen())),
         if (bundle.workload != null) ...[
           const SizedBox(height: 12),
           _WorkloadCard(state: bundle.workload!),
@@ -562,6 +565,41 @@ class _TeacherLessonsCard extends StatelessWidget {
             ),
           ),
           Icon(Icons.arrow_forward_rounded, color: p.ink3, size: 22),
+        ],
+      ),
+    );
+  }
+}
+
+/// «دستور التطبيق»: a card on the home screen to what the app commits to,
+/// its introduction and its next development.
+class _ConstitutionCard extends StatelessWidget {
+  const _ConstitutionCard({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.mq;
+    return MqCard(
+      onTap: onTap,
+      semanticLabel: 'دستور التطبيق',
+      child: Row(
+        children: [
+          const MqIconTile(icon: Icons.gavel_rounded, size: 48),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('دستور التطبيق',
+                    style: MqType.h3.copyWith(color: p.ink)),
+                const SizedBox(height: 2),
+                Text('تعريف بالتطبيق، ما نلتزم به معك، وتطوّره القادم.',
+                    style: MqType.caption.copyWith(color: p.ink3)),
+              ],
+            ),
+          ),
+          Icon(Icons.arrow_forward_rounded, color: p.ink3, size: 20),
         ],
       ),
     );
