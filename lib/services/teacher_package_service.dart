@@ -373,9 +373,20 @@ class TeacherPackageService {
 
   /// Inspects [text] and, when it can be imported, writes it in one
   /// transaction. Anything else writes nothing and returns the reason.
-  Future<PackageImportResult> importPackage(String text) async {
+  ///
+  /// [replaceSameVersion] is for lessons that come from the shared storage
+  /// (a trusted source): when the teacher corrected a lesson (for example
+  /// filled in the section or stream) without changing its version number,
+  /// the copy on this device is replaced instead of being refused. A file the
+  /// student imports by hand keeps the old, stricter rule.
+  Future<PackageImportResult> importPackage(String text,
+      {bool replaceSameVersion = false}) async {
     final preview = await inspect(text);
-    if (!preview.canImport) return PackageImportResult(preview, null);
+    final correction =
+        replaceSameVersion && preview.kind == PackageKind.sameVersionConflict;
+    if (!preview.canImport && !correction) {
+      return PackageImportResult(preview, null);
+    }
     final c = preview.content!;
     final id = await _repo.writeImported(
       originLessonId: c.originLessonId,
@@ -398,9 +409,10 @@ class TeacherPackageService {
           .toList(),
       nodes: c.nodes,
       attachments: c.attachments,
-      replaceLessonId: preview.kind == PackageKind.newerVersion
-          ? preview.existingLessonId
-          : null,
+      replaceLessonId:
+          (preview.kind == PackageKind.newerVersion || correction)
+              ? preview.existingLessonId
+              : null,
     );
     return PackageImportResult(preview, id);
   }

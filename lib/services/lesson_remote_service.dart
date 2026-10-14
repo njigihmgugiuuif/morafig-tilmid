@@ -602,12 +602,22 @@ class LessonSyncService {
           continue;
         }
         final same = await _repo.findImportedByOrigin(e.originLessonId);
-        if (same != null && same.versionNumber >= e.versionNumber) {
+        // A newer number always updates. The SAME number with a different
+        // fingerprint means the teacher corrected the lesson (section, stream,
+        // title...) without a new version: the copy here is replaced too.
+        if (same != null && same.versionNumber > e.versionNumber) {
+          unchanged++;
+          continue;
+        }
+        if (same != null &&
+            same.versionNumber == e.versionNumber &&
+            e.fingerprint.isEmpty) {
           unchanged++;
           continue;
         }
         final got = await _remote.fetchLesson(e);
-        final result = await _packages.importPackage(got.json);
+        final result =
+            await _packages.importPackage(got.json, replaceSameVersion: true);
         switch (result.preview.kind) {
           case PackageKind.fresh:
             added++;
@@ -620,9 +630,13 @@ class LessonSyncService {
             unchanged++;
           case PackageKind.corrupt:
           case PackageKind.unsupported:
-          case PackageKind.sameVersionConflict:
-            failed++;
-            errors.add('${e.title}: ${result.preview.message}');
+            if (result.written) {
+              updated++;
+              pages += result.preview.content?.pages.length ?? 0;
+            } else {
+              failed++;
+              errors.add('${e.title}: ${result.preview.message}');
+            }
         }
       } on RemoteException catch (ex) {
         failed++;

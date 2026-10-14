@@ -9,6 +9,7 @@ import '../../database/teacher_content_database.dart';
 import '../../repositories/teacher_content_repository.dart';
 import '../../services/planning_service.dart';
 import '../../platform/connectivity.dart';
+import '../../platform/page_control.dart';
 import '../../services/lesson_auto_sync.dart';
 import '../../services/lesson_remote_service.dart';
 import '../../services/teacher_session.dart';
@@ -78,6 +79,33 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     autoSync.setForeground(state == AppLifecycleState.resumed);
+    if (state == AppLifecycleState.resumed) unawaited(checkStorageAlive());
+  }
+
+  bool _checkingStorage = false;
+
+  /// Phones may freeze a page's background workers while the app is away.
+  /// When the student comes back, the database can then stop answering and
+  /// the screens stay on their loading state («التطبيق متجمد»). A trivial
+  /// query with a time limit detects this; if it does not answer, the page is
+  /// reloaded, which reopens the database from what is saved on the device.
+  /// Nothing is lost: everything the student entered is already stored, and an
+  /// unfinished registration is kept as a draft.
+  Future<void> checkStorageAlive({
+    Duration limit = const Duration(seconds: 6),
+    void Function()? onFrozen,
+  }) async {
+    if (_teacherOnly || _checkingStorage) return;
+    _checkingStorage = true;
+    try {
+      await db.customSelect('SELECT 1').get().timeout(limit);
+    } on TimeoutException {
+      (onFrozen ?? reloadPage)();
+    } catch (_) {
+      // Any other error is a normal failure, not a freeze: leave it alone.
+    } finally {
+      _checkingStorage = false;
+    }
   }
 
   /// The teachers' password for this visit (memory only).

@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import '../design/page.dart';
 import '../design/primitives.dart';
 import '../design/tokens.dart';
-import '../library/library_screen.dart';
+import 'about_screen.dart';
+import 'constitution_screen.dart';
 import '../goals/goals_screen.dart';
 import '../planning/energy_focus_screen.dart';
 import '../planning/plan_calendar_screen.dart';
@@ -14,8 +15,9 @@ import '../recovery/recovery_screen.dart';
 import 'exams_screen.dart';
 import 'settings_screen.dart';
 
-/// «المزيد» (D-2 X04): exams, the library of teacher lessons, the SEPARATE
-/// teacher entry, and settings. The teacher entry is
+/// «المزيد» (D-2 X04): exams, planning tools, goals, settings, the app's
+/// constitution and «عن التطبيق». The teachers' lessons moved to a large card
+/// on the home screen («دروس أساتذتي»). The SEPARATE The teacher entry is
 /// its own door (it opens the entry screen, not a setting).
 class MoreScreen extends StatelessWidget {
   const MoreScreen({super.key});
@@ -85,18 +87,25 @@ class MoreScreen extends StatelessWidget {
           onTap: () => open(const EnergyFocusScreen()),
         ),
         _Entry(
-          icon: Icons.menu_book_outlined,
-          tone: MqTone.brand,
-          title: 'مكتبة الدروس',
-          subtitle: 'دروس أساتذتك، تصلك تلقائيًا وتُفتح دون إنترنت',
-          onTap: () => open(const LibraryScreen()),
-        ),
-        _Entry(
           icon: Icons.settings_outlined,
           tone: MqTone.neutral,
           title: 'الإعدادات',
           subtitle: 'الملف الشخصي، تثبيت التطبيق، النسخ الاحتياطي',
           onTap: () => open(const SettingsScreen()),
+        ),
+        _Entry(
+          icon: Icons.gavel_rounded,
+          tone: MqTone.brand,
+          title: 'دستور التطبيق',
+          subtitle: 'ما نلتزم به معك',
+          onTap: () => open(const ConstitutionScreen()),
+        ),
+        _Entry(
+          icon: Icons.info_outline_rounded,
+          tone: MqTone.info,
+          title: 'عن التطبيق',
+          subtitle: 'من نحن وماذا يفعل التطبيق',
+          onTap: () => open(const AboutScreen()),
         ),
       ],
     );

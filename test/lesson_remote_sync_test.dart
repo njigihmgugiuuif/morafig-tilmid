@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:test/test.dart';
@@ -269,6 +270,35 @@ void main() {
     final list = await studentRepo.listImported();
     expect(list, hasLength(1));
     expect(list.single.lesson.title, 'عنوان معدّل');
+  });
+
+  test('the teacher fills the section later with the SAME version: the '
+      'student copy is corrected', () async {
+    final id = await publishedLesson(1);
+    await publish(id);
+    final sync = LessonSyncService(remote, studentRepo);
+    await sync.syncLevel(1);
+    expect((await studentRepo.listImported()).single.lesson.sectionLabel,
+        isNull);
+
+    // Fix the lesson directly (same version number), then send it again.
+    await (teacherDb.update(teacherDb.teacherLessons)
+          ..where((t) => t.id.equals(id)))
+        .write(TeacherLessonsCompanion(
+            sectionLabel: const Value('قسم 3'),
+            trackLabel: const Value('علوم تجريبية')));
+    await publish(id);
+
+    final report = await sync.syncLevel(1);
+    expect(report.updated, 1);
+    expect(report.failed, 0);
+    final l = (await studentRepo.listImported()).single.lesson;
+    expect(l.sectionLabel, 'قسم 3');
+    expect(l.trackLabel, 'علوم تجريبية');
+    expect(l.teacherName, 'أ. سمير');
+    // And a second sync changes nothing.
+    final again = await sync.syncLevel(1);
+    expect(again.changedAnything, isFalse);
   });
 
   test('offline sync fails with a message and keeps local lessons', () async {

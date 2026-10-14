@@ -85,7 +85,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   Widget _buildPage(BuildContext context, TeacherContentRepository repo) {
     return MqPage(
-      title: 'مكتبة الدروس',
+      title: 'دروس أساتذتي',
       actions: [
         MqIconButton(
             icon: Icons.storage_outlined,

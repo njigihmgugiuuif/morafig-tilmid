@@ -11,6 +11,7 @@ import '../design/primitives.dart';
 import '../design/progress.dart';
 import '../design/states.dart';
 import '../design/tokens.dart';
+import '../library/library_screen.dart';
 import '../state/app_state.dart';
 import '../state/home_data.dart';
 import '../widgets/install_button.dart';
@@ -253,6 +254,8 @@ class _Body extends StatelessWidget {
             Expanded(child: _TodayTile(snapshot: s, onTap: () => onGoToTab?.call(1))),
           ],
         ),
+        const SizedBox(height: 12),
+        _TeacherLessonsCard(onTap: () => onOpen(const LibraryScreen())),
         if (bundle.workload != null) ...[
           const SizedBox(height: 12),
           _WorkloadCard(state: bundle.workload!),
@@ -494,6 +497,42 @@ class _WorkloadCard extends StatelessWidget {
           ),
         ],
       ]),
+    );
+  }
+}
+
+/// «دروس أساتذتي»: a large entry on the home screen to the lessons the
+/// teachers sent (they arrive by themselves and open without internet).
+class _TeacherLessonsCard extends StatelessWidget {
+  const _TeacherLessonsCard({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.mq;
+    return MqCard(
+      onTap: onTap,
+      semanticLabel: 'دروس أساتذتي',
+      padding: const EdgeInsets.all(18),
+      child: Row(
+        children: [
+          const MqIconTile(icon: Icons.menu_book_rounded, size: 60),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('دروس أساتذتي', style: MqType.h2.copyWith(color: p.ink)),
+                const SizedBox(height: 4),
+                Text(
+                    'دروس أساتذتك بالصور، تصلك تلقائيًا لسنتك وتُفتح دون إنترنت.',
+                    style: MqType.small.copyWith(color: p.ink2)),
+              ],
+            ),
+          ),
+          Icon(Icons.arrow_forward_rounded, color: p.ink3, size: 22),
+        ],
+      ),
     );
   }
 }
