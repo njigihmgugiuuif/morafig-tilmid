@@ -501,7 +501,7 @@ class _WorkloadCard extends StatelessWidget {
   }
 }
 
-/// «دروس أساتذتي»: a large entry on the home screen to the lessons the
+/// «دروس الأستاذ(ة)»: a large entry on the home screen to the lessons the
 /// teachers sent (they arrive by themselves and open without internet).
 class _TeacherLessonsCard extends StatelessWidget {
   const _TeacherLessonsCard({required this.onTap});
@@ -512,17 +512,48 @@ class _TeacherLessonsCard extends StatelessWidget {
     final p = context.mq;
     return MqCard(
       onTap: onTap,
-      semanticLabel: 'دروس أساتذتي',
+      semanticLabel: 'دروس الأستاذ(ة)',
       padding: const EdgeInsets.all(18),
       child: Row(
         children: [
-          const MqIconTile(icon: Icons.menu_book_rounded, size: 60),
+          // The library icon, with a small «received» badge: lessons arrive
+          // here from the teachers by themselves.
+          SizedBox(
+            width: 64,
+            height: 64,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                const Positioned.fill(
+                    child: MqIconTile(
+                        icon: Icons.local_library_rounded, size: 64)),
+                PositionedDirectional(
+                  end: -6,
+                  bottom: -6,
+                  child: Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: p.ok,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: p.surface, width: 2),
+                    ),
+                    child: Icon(Icons.move_to_inbox_rounded,
+                        size: 15,
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? const Color(0xFF0B2A1E)
+                            : Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('دروس أساتذتي', style: MqType.h2.copyWith(color: p.ink)),
+                Text('دروس الأستاذ(ة)', style: MqType.h2.copyWith(color: p.ink)),
                 const SizedBox(height: 4),
                 Text(
                     'دروس أساتذتك بالصور، تصلك تلقائيًا لسنتك وتُفتح دون إنترنت.',

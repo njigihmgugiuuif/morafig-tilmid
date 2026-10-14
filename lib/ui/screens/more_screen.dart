@@ -17,7 +17,7 @@ import 'settings_screen.dart';
 
 /// «المزيد» (D-2 X04): exams, planning tools, goals, settings, the app's
 /// constitution and «عن التطبيق». The teachers' lessons moved to a large card
-/// on the home screen («دروس أساتذتي»). The SEPARATE The teacher entry is
+/// on the home screen («دروس الأستاذ(ة)»). The SEPARATE The teacher entry is
 /// its own door (it opens the entry screen, not a setting).
 class MoreScreen extends StatelessWidget {
   const MoreScreen({super.key});

@@ -628,8 +628,7 @@ class LessonSyncService {
           case PackageKind.duplicate:
           case PackageKind.olderVersion:
             unchanged++;
-          case PackageKind.corrupt:
-          case PackageKind.unsupported:
+          case PackageKind.sameVersionConflict:
             if (result.written) {
               updated++;
               pages += result.preview.content?.pages.length ?? 0;
@@ -637,6 +636,10 @@ class LessonSyncService {
               failed++;
               errors.add('${e.title}: ${result.preview.message}');
             }
+          case PackageKind.corrupt:
+          case PackageKind.unsupported:
+            failed++;
+            errors.add('${e.title}: ${result.preview.message}');
         }
       } on RemoteException catch (ex) {
         failed++;
