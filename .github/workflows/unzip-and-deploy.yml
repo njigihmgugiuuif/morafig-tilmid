@@ -71,7 +71,10 @@ jobs:
           ls -la web/sqlite3.wasm web/drift_worker.js
 
       - name: 5. flutter build web
-        run: flutter build web --release --base-href "/morafig-tilmid/"
+        # --no-web-resources-cdn: bundle CanvasKit (and its fonts) INSIDE the
+        # site instead of fetching them from Google's CDN at run time, so the
+        # installed app can start with no internet (offline opening).
+        run: flutter build web --release --no-web-resources-cdn --base-href "/morafig-tilmid/"
 
       - name: Build diagnostic page (separate entrypoint, does not affect main app)
         run: |
