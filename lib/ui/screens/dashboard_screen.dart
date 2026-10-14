@@ -90,11 +90,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
         padding: const EdgeInsets.fromLTRB(MqSpace.screen, 12, MqSpace.screen, 28),
         children: [
           MqReveal(index: 0, child: _IdentityRow(onSettings: () => _open(const SettingsScreen()))),
-          const Align(
+          Align(
             alignment: AlignmentDirectional.centerStart,
             child: Padding(
-              padding: EdgeInsets.only(top: 10),
-              child: InstallButton(),
+              padding: const EdgeInsets.only(top: 10),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  const InstallButton(),
+                  _ConstitutionButton(
+                      onTap: () => _open(const ConstitutionScreen())),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 14),
@@ -257,8 +265,6 @@ class _Body extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         _TeacherLessonsCard(onTap: () => onOpen(const LibraryScreen())),
-        const SizedBox(height: 12),
-        _ConstitutionCard(onTap: () => onOpen(const ConstitutionScreen())),
         if (bundle.workload != null) ...[
           const SizedBox(height: 12),
           _WorkloadCard(state: bundle.workload!),
@@ -571,36 +577,30 @@ class _TeacherLessonsCard extends StatelessWidget {
   }
 }
 
-/// «دستور التطبيق»: a card on the home screen to what the app commits to,
-/// its introduction and its next development.
-class _ConstitutionCard extends StatelessWidget {
-  const _ConstitutionCard({required this.onTap});
+/// A small «دستور التطبيق» button beside the install button on the home
+/// screen: opens the app's introduction, commitments and next development.
+class _ConstitutionButton extends StatelessWidget {
+  const _ConstitutionButton({required this.onTap});
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final p = context.mq;
-    return MqCard(
+    return MqPressable(
       onTap: onTap,
       semanticLabel: 'دستور التطبيق',
-      child: Row(
-        children: [
-          const MqIconTile(icon: Icons.gavel_rounded, size: 48),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('دستور التطبيق',
-                    style: MqType.h3.copyWith(color: p.ink)),
-                const SizedBox(height: 2),
-                Text('تعريف بالتطبيق، ما نلتزم به معك، وتطوّره القادم.',
-                    style: MqType.caption.copyWith(color: p.ink3)),
-              ],
-            ),
-          ),
-          Icon(Icons.arrow_forward_rounded, color: p.ink3, size: 20),
-        ],
+      child: Container(
+        constraints: const BoxConstraints(minHeight: MqSpace.touch),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          color: p.surface2,
+          borderRadius: BorderRadius.circular(MqSpace.radiusButton),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(Icons.gavel_rounded, size: 20, color: p.ink),
+          const SizedBox(width: 8),
+          Text('دستور التطبيق', style: MqType.label.copyWith(color: p.ink)),
+        ]),
       ),
     );
   }
