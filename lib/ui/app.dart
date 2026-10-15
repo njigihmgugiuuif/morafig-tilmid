@@ -47,7 +47,7 @@ class _MarafiqAppState extends State<MarafiqApp> {
 
   Widget _app({required Widget home}) {
     return MaterialApp(
-      title: 'مرافق التلميذ',
+      title: 'مرافق التلميذ — ثانوية رابح بطاط',
       debugShowCheckedModeBanner: false,
       locale: const Locale('ar'),
       supportedLocales: const [Locale('ar')],
