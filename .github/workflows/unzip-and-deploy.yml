@@ -71,9 +71,8 @@ jobs:
           ls -la web/sqlite3.wasm web/drift_worker.js
 
       - name: 5. flutter build web
-        # --no-web-resources-cdn: bundle CanvasKit (and its fonts) INSIDE the
-        # site instead of fetching them from Google's CDN at run time, so the
-        # installed app can start with no internet (offline opening).
+        # --no-web-resources-cdn: CanvasKit and its fonts are bundled INSIDE
+        # the site instead of being fetched from Google's CDN at run time.
         run: flutter build web --release --no-web-resources-cdn --base-href "/morafig-tilmid/"
 
       - name: Build diagnostic page (separate entrypoint, does not affect main app)
@@ -83,6 +82,25 @@ jobs:
             --output build/web_diagnose
           mkdir -p build/web/diagnose
           cp -r build/web_diagnose/* build/web/diagnose/
+
+      - name: Offline worker (the app keeps itself on the device)
+        # Current Flutter ships NO caching service worker (its
+        # flutter_service_worker.js is only a clean-up stub), so the app could
+        # not open without internet. web/mq_sw.js is our own worker; this step
+        # fills it with the build's file list and publishes it under the name
+        # the browser already knows. The step FAILS if that did not happen:
+        # a build without it must never be deployed.
+        run: |
+          python3 tools/make_offline_worker.py build/web
+          grep -q "mq-offline-sw" build/web/flutter_service_worker.js
+          echo "offline worker in place"
+
+      - name: Real offline check (non-blocking; screenshot in the artifacts)
+        continue-on-error: true
+        run: |
+          pip install playwright --break-system-packages >/dev/null 2>&1 || pip install playwright
+          python3 -m playwright install --with-deps chromium >/dev/null 2>&1
+          python3 tools/offline_check.py build/web 2>&1 | tee offline_check.log
 
       - name: Check web output exists
         run: |
@@ -106,6 +124,8 @@ jobs:
           name: verify-logs
           path: |
             test.log
+            offline_check.log
+            offline_check.png
             pubspec.lock
           if-no-files-found: ignore
 
