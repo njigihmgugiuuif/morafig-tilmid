@@ -17,6 +17,7 @@ import '../state/home_data.dart';
 import '../widgets/install_button.dart';
 import '../widgets/priority_views.dart';
 import 'now_screen.dart';
+import '../design/icon3d.dart';
 import 'constitution_screen.dart';
 import 'settings_screen.dart';
 import 'task_detail_screen.dart';
@@ -534,7 +535,7 @@ class _TeacherLessonsCard extends StatelessWidget {
               clipBehavior: Clip.none,
               children: [
                 const Positioned.fill(
-                    child: MqIconTile(
+                    child: Mq3dIcon(
                         icon: Icons.local_library_rounded, size: 64)),
                 PositionedDirectional(
                   end: -6,

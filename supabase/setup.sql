@@ -10,8 +10,12 @@ create table if not exists public.lessons (
   teacher_name     text not null,
   fingerprint      text not null,
   package_path     text not null,
+  owner            text,
   updated_at       timestamptz not null default now()
 );
+
+-- لمن أنشأ الجدول من قبل: أضف عمود صاحب الدرس (آمن إن كان موجودًا).
+alter table public.lessons add column if not exists owner text;
 
 create index if not exists lessons_level_idx
   on public.lessons (internal_level, updated_at desc);

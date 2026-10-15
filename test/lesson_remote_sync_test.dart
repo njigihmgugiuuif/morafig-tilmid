@@ -13,6 +13,7 @@ import 'package:student_app/domain/teacher_content_domain.dart';
 import 'package:student_app/repositories/teacher_content_repository.dart';
 import 'package:student_app/services/lesson_remote_service.dart';
 import 'package:student_app/services/teacher_package_service.dart';
+import 'package:student_app/services/teacher_session.dart';
 
 /// STATUS: written without a Dart SDK; verified only by GitHub Actions.
 ///
@@ -34,6 +35,14 @@ class FakeServer {
   int downloads = 0;
   int functionVersion = 2;
 
+  /// What the function says about the number (version 3 of the function).
+  String? teacherNameOnVerify;
+  bool adminOnVerify = false;
+
+  /// The lesson belongs to another teacher: commit answers 403.
+  bool commitForbidden = false;
+  int commitCalls = 0;
+
   /// Failure injection.
   int putFailuresLeft = 0; // next N putFile calls answer 500
   final Set<String> flakyGetOnce = {}; // first GET of these paths answers 503
@@ -54,7 +63,12 @@ class FakeServer {
       }
       switch (body['action']) {
         case 'verify':
-          return _json(200, {'ok': true, 'version': functionVersion});
+          return _json(200, {
+            'ok': true,
+            'version': functionVersion,
+            'teacher': teacherNameOnVerify,
+            'admin': adminOnVerify,
+          });
         case 'putFile':
           if (putFailuresLeft > 0) {
             putFailuresLeft--;
@@ -66,6 +80,10 @@ class FakeServer {
           }
           return _json(200, {'ok': true, 'size': bytes.length});
         case 'commit':
+          commitCalls++;
+          if (commitForbidden) {
+            return _json(403, {'message': 'هذا الدرس يخص أستاذًا آخر.'});
+          }
           final l = body['lesson'] as Map<String, dynamic>;
           final m = jsonDecode(body['manifest'] as String)
               as Map<String, dynamic>;
@@ -189,6 +207,49 @@ void main() {
       () async {
     expect(await remote.verifyPassword('nope'), isFalse);
     expect(await remote.verifyPassword('secret-pass'), isTrue);
+  });
+
+  test('verifyCode tells the teacher name the server knows', () async {
+    server.teacherNameOnVerify = 'أ. سعاد';
+    final who = await remote.verifyCode('secret-pass');
+    expect(who, isNotNull);
+    expect(who!.teacherName, 'أ. سعاد');
+    expect(who.admin, isFalse);
+  });
+
+  test('verifyCode: wrong number → null; administrator and old servers have '
+      'no teacher name', () async {
+    expect(await remote.verifyCode('nope'), isNull);
+    server.adminOnVerify = true;
+    final admin = await remote.verifyCode('secret-pass');
+    expect(admin!.admin, isTrue);
+    expect(admin.teacherName, isNull);
+  });
+
+  test('a lesson of another teacher is refused with a clear message, once',
+      () async {
+    final id = await publishedLesson(1);
+    server.commitForbidden = true;
+    await expectLater(
+        publish(id),
+        throwsA(isA<RemoteException>().having(
+            (e) => e.message, 'message', contains('أستاذًا آخر'))));
+    expect(server.commitCalls, 1, reason: 'a refusal is never retried');
+  });
+
+  test('the number is remembered on the device only until she signs out',
+      () async {
+    final store = MemoryKeyValueStore();
+    final access = TeacherSavedAccess(store);
+    expect(await access.code(), isNull);
+    await access.save('48291736', name: 'أ. سعاد');
+    expect(await access.code(), '48291736');
+    expect(await access.name(), 'أ. سعاد');
+    // A new object over the same storage = the app opened again after an update.
+    expect(await TeacherSavedAccess(store).code(), '48291736');
+    await access.clear();
+    expect(await access.code(), isNull);
+    expect(await access.name(), isEmpty);
   });
 
   test('wrong password cannot publish anything', () async {
@@ -515,6 +576,14 @@ void main() {
       expect(lines.last, startsWith('✗'));
       expect(lines.last, contains('الصورة 1'));
     });
+  });
+
+  test('the signed-in teacher keeps the name the server gave', () {
+    final s = TeacherRemoteSession();
+    s.signIn('48291736', name: 'أ. سعاد');
+    expect(s.name, 'أ. سعاد');
+    s.signOut();
+    expect(s.name, isNull);
   });
 
   test('teacher password session is memory-only and clearable', () {

@@ -674,7 +674,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.w800,
-                              color: _year == e.key ? p.brandDeep : p.ink)),
+                              color: _year == e.key ? p.brandInk : p.ink)),
                     ),
                   ],
                 ),

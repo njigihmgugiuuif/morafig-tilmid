@@ -179,7 +179,7 @@ class _TeacherAccountTabState extends State<TeacherAccountTab> {
           ),
         ),
         const InfoBox(
-          'التحقق من هوية كل أستاذ على حدة غير متاح في هذه النسخة: كلمة المرور واحدة للأساتذة.',
+          'لكل أستاذ(ة) رقمه الخاص يُتحقَّق منه على الخادم، وتبقى دروسه باسمه ولا يعدّلها غيره. إن لم يُفعَّل الخادم بعد فالدخول محلي على هذا الجهاز فقط.',
           icon: Icons.lock_outline,
         ),
         const SizedBox(height: 16),

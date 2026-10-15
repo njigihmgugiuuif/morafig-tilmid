@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta name="google-site-verification" content="Ry-Dn9YLiqNA-Emig1FIbOSlGgBrC1Gz70lKWN1Vuyc" />
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
@@ -63,10 +62,38 @@
       return e.userChoice.then(function (c) { return c.outcome === 'accepted'; });
     };
   </script>
-  <!-- Offline use: Flutter's own service worker (registered by
-       flutter_bootstrap.js) keeps the app files on the device after the first
-       visit, so the app opens without internet. It was previously removed here
-       at every load, which made offline opening impossible. -->
+  <script>
+    // Offline use. Current Flutter ships NO caching service worker, so the app
+    // has its own (web/mq_sw.js, published as flutter_service_worker.js by the
+    // deploy workflow). It is registered only when the file really is ours:
+    // Flutter's own file is a clean-up stub that would unregister itself.
+    (function () {
+      if (!('serviceWorker' in navigator)) return;
+      window.addEventListener('load', function () {
+        fetch('flutter_service_worker.js', { cache: 'no-cache' })
+          .then(function (r) { return r.ok ? r.text() : ''; })
+          .then(function (t) {
+            if (t.indexOf('mq-offline-sw') < 0) return;
+            return navigator.serviceWorker.getRegistration().then(function (reg) {
+              var w = reg && (reg.active || reg.waiting || reg.installing);
+              if (w && w.scriptURL.indexOf('flutter_service_worker.js') >= 0) {
+                return reg.update();
+              }
+              return navigator.serviceWorker.register('flutter_service_worker.js');
+            });
+          })
+          .catch(function () {});
+      });
+      // Ask the browser not to clear the app's data under storage pressure
+      // (Chrome answers silently; Firefox would show a question, so skip it).
+      try {
+        if (navigator.storage && navigator.storage.persist &&
+            !/Firefox\//.test(navigator.userAgent || '')) {
+          navigator.storage.persist().catch(function () {});
+        }
+      } catch (_) {}
+    })();
+  </script>
 
   <div id="app-loading" style="
       position:fixed; inset:0; display:flex; flex-direction:column;

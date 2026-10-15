@@ -23,7 +23,6 @@ import '../design/tokens.dart';
 /// imported lessons should be shown to which student by level/section/track,
 /// and none is invented here. Every imported lesson is shown; the level chips
 /// are a manual FILTER chosen by the student, never an access restriction.
-/// Every lesson carries «أستاذ · غير رسمي».
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
 
@@ -187,7 +186,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
                                 LessonRow(
                                   item: i,
                                   showStatus: false,
-                                  showBadge: true,
                                   trailing: Icon(Icons.chevron_left,
                                       color: context.mq.ink2),
                                   onTap: () async {
@@ -212,7 +210,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
             const SizedBox(height: 8),
             const InfoBox(
               'تظهر لك كل دروسك المحفوظة على الجهاز. خيارات السنة للعرض فقط '
-              'وليست قيدًا على ما يمكنك فتحه. دروس الأساتذة غير رسمية.',
+              'وليست قيدًا على ما يمكنك فتحه.',
               icon: Icons.help_outline,
             ),
       ],
@@ -257,7 +255,7 @@ class _LevelChoice extends StatelessWidget {
                     style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w800,
-                        color: selected ? mq.brandDeep : mq.ink)),
+                        color: selected ? mq.brandInk : mq.ink)),
               ),
             ],
           ),

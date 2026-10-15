@@ -1,7 +1,19 @@
-// مرافق التلميذ · دالة نشر دروس الأستاذ (Supabase Edge Function) — الإصدار 2.
+// مرافق التلميذ · دالة نشر دروس الأستاذ (Supabase Edge Function) — الإصدار 3.
 //
-// كلمة مرور الأساتذة سرّ على الخادم (TEACHER_PASSWORD) ولا تظهر في التطبيق
-// ولا في المستودع. الكتابة لا تتم إلا بها. القراءة عامة.
+// لكل أستاذ(ة) رقم خاص به، وهي أسرار على الخادم لا تظهر في التطبيق ولا في
+// المستودع:
+//   TEACHER_CODES    : نص JSON  {"48291736":"أ. سعاد","90517362":"أ. كريم"}
+//                      (الرقم من 6 إلى 12 خانة أرقام فقط، والقيمة اسم الأستاذ(ة)).
+//   TEACHER_PASSWORD : (اختياري) كلمة مرور المسؤول (8 أحرف فأكثر): تدير كل
+//                      الدروس. وإن لم يوجد TEACHER_CODES تعمل الدالة بالطريقة
+//                      القديمة (كلمة مرور واحدة للجميع) دون أي تغيير في القاعدة.
+// هوية الأستاذ(ة) هي اسمه في TEACHER_CODES: لا تعطِ الاسم نفسه لأستاذين مختلفين،
+// ولا تغيّر الاسم بعد أن ينشر دروسه. (يجوز أن يكون لأستاذ واحد أكثر من رقم.)
+// عند وجود TEACHER_CODES:
+//   - اسم الأستاذ(ة) على الدرس يأتي من الخادم لا من الجهاز.
+//   - كل درس يحمل صاحبه (العمود owner): لا يغيّر أستاذ(ة) درس غيره ولا يسحبه
+//     ولا يرفع ملفات فوق ملفاته. المسؤول وحده يتجاوز ذلك.
+// الكتابة لا تتم إلا بأحد هذه الأرقام. القراءة عامة.
 //
 // الإجراءات:
 //   verify    : فحص كلمة المرور.
@@ -20,6 +32,7 @@ const CORS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+const VERSION = 3;
 const BUCKET = "lesson-files";
 const FORMAT = "marafiq.teacher-lesson";
 const MAX_FILE_BYTES = 8 * 1024 * 1024; // لكل ملف بعد فكّ الترميز
@@ -50,6 +63,63 @@ function decodeBase64(b64: string): Uint8Array {
   return out;
 }
 
+// أرقام الأساتذة من السرّ TEACHER_CODES (تجاهل أي مدخل غير صالح).
+function loadCodes(): { code: string; name: string }[] {
+  const raw = Deno.env.get("TEACHER_CODES");
+  if (!raw) return [];
+  try {
+    const obj = JSON.parse(raw);
+    const out: { code: string; name: string }[] = [];
+    if (obj && typeof obj === "object" && !Array.isArray(obj)) {
+      for (const [code, name] of Object.entries(obj)) {
+        if (
+          /^[0-9]{6,12}$/.test(code) && typeof name === "string" &&
+          name.trim().length > 0
+        ) out.push({ code, name: name.trim() });
+      }
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
+type Caller = { id: string; name: string | null; admin: boolean };
+
+// صاحب الدرس الحالي (إن وُجد). يفشل بوضوح إن لم يُضف عمود owner بعد.
+async function ownerOf(
+  supabase: any,
+  lessonId: string,
+): Promise<
+  { ok: true; owner: string | null; exists: boolean } | {
+    ok: false;
+    message: string;
+  }
+> {
+  const r = await supabase.from("lessons").select("owner")
+    .eq("origin_lesson_id", lessonId).maybeSingle();
+  if (r.error) {
+    const msg = String(r.error.message ?? "");
+    if (msg.includes("owner")) {
+      return {
+        ok: false,
+        message:
+          "قاعدة البيانات تحتاج تحديثًا: أضف عمود owner (الأمر في SUPABASE_SETUP_AR.md).",
+      };
+    }
+    return { ok: false, message: `تعذّر فحص صاحب الدرس: ${msg}` };
+  }
+  return {
+    ok: true,
+    owner: (r.data?.owner ?? null) as string | null,
+    exists: !!r.data,
+  };
+}
+
+function canWrite(caller: Caller, owner: string | null): boolean {
+  return caller.admin || owner === null || owner === caller.id;
+}
+
 // إبطاء المحاولات الخاطئة (حماية بسيطة من التخمين، ليست حماية كاملة).
 let failures = 0;
 let windowStart = Date.now();
@@ -58,12 +128,16 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return reply(405, { message: "POST only" });
 
-  const expected = Deno.env.get("TEACHER_PASSWORD") ?? "";
-  if (expected.length < 8) {
+  const adminPassword = Deno.env.get("TEACHER_PASSWORD") ?? "";
+  const codes = loadCodes();
+  if (adminPassword.length < 8 && codes.length === 0) {
     return reply(500, {
-      message: "كلمة مرور الأساتذة لم تُضبط على الخادم بعد (TEACHER_PASSWORD).",
+      message:
+        "أرقام الأساتذة لم تُضبط على الخادم بعد (TEACHER_CODES أو TEACHER_PASSWORD).",
     });
   }
+  // الملكية لا تعمل إلا حين تُضبط أرقام الأساتذة.
+  const ownershipOn = codes.length > 0;
 
   let body: Record<string, any>;
   try {
@@ -79,14 +153,36 @@ Deno.serve(async (req) => {
   if (failures >= 20) {
     return reply(429, { message: "محاولات كثيرة. انتظر قليلًا." });
   }
-  if (typeof body.password !== "string" || !safeEqual(body.password, expected)) {
+  let caller: Caller | null = null;
+  if (typeof body.password === "string" && body.password.length > 0) {
+    for (const c of codes) {
+      if (safeEqual(body.password, c.code)) {
+        // هوية الأستاذ(ة) = اسمه في TEACHER_CODES (لا رقمه، فالرقم سرّ والاسم علني).
+        caller = { id: `t:${c.name}`, name: c.name, admin: false };
+      }
+    }
+    if (
+      !caller && adminPassword.length >= 8 &&
+      safeEqual(body.password, adminPassword)
+    ) {
+      caller = { id: "admin", name: null, admin: true };
+    }
+  }
+  if (!caller) {
     failures++;
     await new Promise((r) => setTimeout(r, 800));
     return reply(401, { error: "wrong_password" });
   }
 
   const action = body.action;
-  if (action === "verify") return reply(200, { ok: true, version: 2 });
+  if (action === "verify") {
+    return reply(200, {
+      ok: true,
+      version: VERSION,
+      teacher: caller.name,
+      admin: caller.admin,
+    });
+  }
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -101,6 +197,13 @@ Deno.serve(async (req) => {
     const data = body.data;
     if (typeof path !== "string" || !PATH_RE.test(path)) {
       return reply(400, { message: "مسار الملف غير صالح." });
+    }
+    if (ownershipOn) {
+      const o = await ownerOf(supabase, PATH_RE.exec(path)![1]);
+      if (!o.ok) return reply(500, { message: o.message });
+      if (!canWrite(caller, o.owner)) {
+        return reply(403, { message: "هذا الدرس يخص أستاذًا آخر." });
+      }
     }
     if (typeof mime !== "string" || !MIME_RE.test(mime)) {
       return reply(400, { message: "نوع الملف غير صالح." });
@@ -214,17 +317,28 @@ Deno.serve(async (req) => {
     const prev = await supabase.from("lessons").select("package_path")
       .eq("origin_lesson_id", l.originLessonId).maybeSingle();
 
-    const row = await supabase.from("lessons").upsert({
+    const rowData: Record<string, unknown> = {
       origin_lesson_id: l.originLessonId,
       version_number: version,
       internal_level: level,
       title: String(l.title ?? ""),
       subject_name: String(l.subjectName ?? ""),
-      teacher_name: String(l.teacherName ?? ""),
+      // مع أرقام الأساتذة: الاسم من الخادم، فلا يمكن انتحال اسم أستاذ(ة) آخر.
+      teacher_name: caller.name ?? String(l.teacherName ?? ""),
       fingerprint: l.fingerprint,
       package_path: manifestPath,
       updated_at: new Date().toISOString(),
-    });
+    };
+    if (ownershipOn) {
+      const o = await ownerOf(supabase, l.originLessonId);
+      if (!o.ok) return reply(500, { message: o.message });
+      if (!canWrite(caller, o.owner)) {
+        return reply(403, { message: "هذا الدرس يخص أستاذًا آخر." });
+      }
+      // المسؤول يبقي صاحب الدرس كما هو.
+      rowData.owner = o.owner ?? caller.id;
+    }
+    const row = await supabase.from("lessons").upsert(rowData);
     if (row.error) {
       return reply(500, { message: `تعذّر حفظ بيانات الدرس: ${row.error.message}` });
     }
@@ -255,6 +369,13 @@ Deno.serve(async (req) => {
     const id = body.originLessonId;
     if (typeof id !== "string" || !/^[A-Za-z0-9_-]{8,64}$/.test(id)) {
       return reply(400, { message: "معرّف الدرس غير صالح." });
+    }
+    if (ownershipOn) {
+      const o = await ownerOf(supabase, id);
+      if (!o.ok) return reply(500, { message: o.message });
+      if (!canWrite(caller, o.owner)) {
+        return reply(403, { message: "هذا الدرس يخص أستاذًا آخر." });
+      }
     }
     const prev = await supabase.from("lessons").select("package_path")
       .eq("origin_lesson_id", id).maybeSingle();

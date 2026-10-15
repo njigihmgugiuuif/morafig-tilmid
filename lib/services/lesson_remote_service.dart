@@ -125,7 +125,7 @@ class LessonRemoteService {
       // handled by status below
     }
     if (res.statusCode == 401) {
-      throw const RemoteException('كلمة مرور الأساتذة غير صحيحة.');
+      throw const RemoteException(kWrongTeacherCode);
     }
     if (res.statusCode == 429) {
       throw const RemoteException('محاولات كثيرة. انتظر قليلًا ثم حاول.');
@@ -141,14 +141,28 @@ class LessonRemoteService {
     return parsed;
   }
 
-  /// True when the server accepts [password]. A wrong password is `false`;
-  /// network problems throw [RemoteException].
-  Future<bool> verifyPassword(String password) async {
+  /// True when the server accepts [password] (a teacher's own number, or the
+  /// administrator's password). A wrong one is `false`; network problems throw
+  /// [RemoteException].
+  Future<bool> verifyPassword(String password) async =>
+      (await verifyCode(password)) != null;
+
+  /// Asks the server who this number belongs to. `null` = wrong number.
+  /// [TeacherVerification.teacherName] is the teacher's name AS THE SERVER
+  /// KNOWS IT (null for the administrator or an old server function).
+  /// Network problems throw [RemoteException].
+  Future<TeacherVerification?> verifyCode(String code) async {
     try {
-      await _function({'action': 'verify', 'password': password});
-      return true;
+      final info = await _function({'action': 'verify', 'password': code});
+      final name = info['teacher'];
+      return TeacherVerification(
+        teacherName: name is String && name.trim().isNotEmpty
+            ? name.trim()
+            : null,
+        admin: info['admin'] == true,
+      );
     } on RemoteException catch (e) {
-      if (e.message == 'كلمة مرور الأساتذة غير صحيحة.') return false;
+      if (e.message == kWrongTeacherCode) return null;
       rethrow;
     }
   }
@@ -298,7 +312,7 @@ class LessonRemoteService {
     _requireConfigured();
     final Map<String, dynamic> info = await _retry(
         () => _function({'action': 'verify', 'password': password}));
-    if ((info['version'] as num?)?.toInt() != 2) {
+    if (((info['version'] as num?)?.toInt() ?? 0) < 2) {
       throw const RemoteException(
           'دالة الخادم قديمة. الصق نص الدالة الجديد في Supabase ثم أعد الإرسال '
           '(الخطوات في ملف SUPABASE_SETUP_AR.md).');
@@ -536,14 +550,36 @@ class PublishCheck {
   String get sizeLabel => '${(bytes / 1048576).toStringAsFixed(2)} ميغابايت';
 }
 
-/// The teachers' password kept IN MEMORY only, for the current visit to the
-/// teacher panel. It is never written to disk and is cleared on exit.
+/// What the server says about the number a teacher typed.
+class TeacherVerification {
+  const TeacherVerification({this.teacherName, this.admin = false});
+  final String? teacherName;
+  final bool admin;
+}
+
+/// Shown when the server refuses the number.
+const String kWrongTeacherCode = 'الرقم الخاص بك غير صحيح.';
+
+/// The teacher's number for the current visit to the teacher panel, kept IN
+/// MEMORY. Remembering it between visits is a separate, optional choice of the
+/// teacher (see TeacherSavedAccess); this class never touches the disk.
 class TeacherRemoteSession {
   String? _password;
+  String? _name;
   bool get signedIn => _password != null;
   String? get password => _password;
-  void signIn(String password) => _password = password;
-  void signOut() => _password = null;
+
+  /// The teacher's name as the server knows it (null if it did not say).
+  String? get name => _name;
+  void signIn(String password, {String? name}) {
+    _password = password;
+    _name = name;
+  }
+
+  void signOut() {
+    _password = null;
+    _name = null;
+  }
 }
 
 class SyncReport {

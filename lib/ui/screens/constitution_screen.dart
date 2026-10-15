@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../design/icon3d.dart';
 import '../design/logo.dart';
 import '../design/page.dart';
 import '../design/primitives.dart';
@@ -38,8 +39,8 @@ class ConstitutionScreen extends StatelessWidget {
     ),
     (
       Icons.school_outlined,
-      'دروس الأساتذة غير رسمية',
-      'ما يرسله أساتذتك اجتهاد منهم وليس نصًا رسميًا، وتبقى عليه هذه العلامة. '
+      'دروس الأساتذة اجتهاد منهم',
+      'ما يرسله أساتذتك اجتهاد منهم وليس نصًا رسميًا من الوزارة. '
           'ولا يغيّر ترتيب أولوياتك.'
     ),
     (
@@ -61,14 +62,68 @@ class ConstitutionScreen extends StatelessWidget {
     ),
   ];
 
-  /// The next development, stated as a plan: it does not exist yet.
-  static const String aiTitle = 'التطوّر القادم: نموذج ذكاء اصطناعي';
+  /// «كيف تتعامل معه وتستعمله»: short, in the order a student meets the app.
+  static const String usageTitle = 'كيف تتعامل معه وتستعمله';
+  static const List<(IconData, String, String)> usageSteps = [
+    (
+      Icons.flag_outlined,
+      'ابدأ بخطوات البداية',
+      'اختر سنتك الدراسية وشعبتك ثم أدخل موادك والتزاماتك. كل ما كتبته '
+          'تعدّله لاحقًا من الإعدادات (الزر أعلى «الرئيسية»).'
+    ),
+    (
+      Icons.home_outlined,
+      'الرئيسية: ما يهمّك الآن',
+      'تعرض أقرب امتحان وجلسات اليوم وما يحتاج انتباهك. ابدأ منها كل يوم.'
+    ),
+    (
+      Icons.checklist_rounded,
+      'المهام: أضف ما عليك',
+      'اضغط «مهمة جديدة» واكتب المادة والعنوان والمدة، فيرتّبها التطبيق لك '
+          'حسب الأولوية ويشرح لك السبب.'
+    ),
+    (
+      Icons.today_outlined,
+      'اليوم: نفّذ وسجّل',
+      'جلسات اليوم المقترحة لك. بعد كل جلسة سجّل ما أنجزته بصدق، فهذا ما '
+          'تُبنى عليه الخطة والتقدّم.'
+    ),
+    (
+      Icons.show_chart_rounded,
+      'التقدّم: انظر أين وصلت',
+      'يعرض إتقانك لكل موضوع وما يحتاج مراجعة، من تسجيلاتك أنت فقط.'
+    ),
+    (
+      Icons.grid_view_rounded,
+      'المزيد: أدوات التنظيم',
+      'امتحاناتك، أوقات فراغك وظروفك في «واقعي»، مراجعة الخطة، ما فاتك، '
+          'أهدافك، وحالة طاقتك وتركيزك.'
+    ),
+    (
+      Icons.local_library_rounded,
+      'دروس الأستاذ(ة): تصلك وحدها',
+      'من «الرئيسية» اختر سنتك مرة واحدة فتصلك دروس أساتذتك تلقائيًا '
+          'وتُفتح دون إنترنت.'
+    ),
+    (
+      Icons.install_mobile_rounded,
+      'ثبّته على هاتفك',
+      'زر «تثبيت التطبيق» في «الرئيسية» يضعه بين تطبيقاتك ويفتحه دون إنترنت '
+          'بعد أن تفتحه مرة واحدة على الإنترنت.'
+    ),
+  ];
+
+  /// The next development: stated as a plan under development.
+  static const String aiTitle = 'التطوّر القادم: رفيق ذكي بنموذج ذكاء اصطناعي';
   static const List<String> aiPoints = [
-    'نعمل على تطوير نموذج ذكاء اصطناعي ليكون مساعدًا لك في الدراسة. '
-        'هو خطوة قادمة ولم يُنجَز بعد، وليس في التطبيق الآن.',
-    'حين يُضاف سيبقى التزامنا كما هو: يقترح ويشرح ولا يقرّر عنك، '
-        'ولا يخترع أرقامًا ولا معلومات رسمية.',
-    'ولن يُستعمل شيء من بياناتك فيه قبل أن نخبرك بوضوح وتوافق أنت.',
+    'قيد التطوير: نموذج ذكاء اصطناعي خاص بمرافق التلميذ ليكون رفيقك في '
+        'الدراسة. هدفنا أن يشرح لك الدرس بطريقة تناسبك، ويقترح ما تراجعه '
+        'ومتى، ويجيب عن أسئلتك.',
+    'يعتمد على ما سجّلته أنت من تقدّم ومراجعة، فتكون اقتراحاته لك أنت '
+        'وليست كلامًا عامًا.',
+    'التزاماتنا تبقى كما هي: يقترح ويشرح ولا يقرّر عنك، ولا يخترع أرقامًا '
+        'ولا معلومات رسمية، ولا يُستعمل شيء من بياناتك فيه قبل أن نخبرك '
+        'بوضوح وتوافق أنت.',
   ];
 
   @override
@@ -101,7 +156,7 @@ class ConstitutionScreen extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  MqIconTile(icon: articles[i].$1, size: 42),
+                  Mq3dIcon(icon: articles[i].$1, size: 44),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -111,6 +166,34 @@ class ConstitutionScreen extends StatelessWidget {
                             style: MqType.h3.copyWith(color: p.ink)),
                         const SizedBox(height: 4),
                         Text(articles[i].$3,
+                            style: MqType.small.copyWith(color: p.ink2)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        const SizedBox(height: 4),
+        const MqSectionTitle(usageTitle),
+        for (var i = 0; i < usageSteps.length; i++)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: MqCard(
+              kind: MqCardKind.soft,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Mq3dIcon(icon: usageSteps[i].$1, tone: MqTone.accent, size: 42),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('${i + 1}. ${usageSteps[i].$2}',
+                            style: MqType.h3.copyWith(color: p.ink)),
+                        const SizedBox(height: 4),
+                        Text(usageSteps[i].$3,
                             style: MqType.small.copyWith(color: p.ink2)),
                       ],
                     ),
@@ -148,7 +231,7 @@ class ConstitutionScreen extends StatelessWidget {
           onTap: () => Navigator.of(context).push<void>(
               MaterialPageRoute<void>(builder: (_) => const AboutScreen())),
           child: Row(children: [
-            const MqIconTile(icon: Icons.info_outline_rounded, size: 44),
+            const Mq3dIcon(icon: Icons.info_outline_rounded, tone: MqTone.info, size: 44),
             const SizedBox(width: 12),
             Expanded(
               child: Text('عن التطبيق',

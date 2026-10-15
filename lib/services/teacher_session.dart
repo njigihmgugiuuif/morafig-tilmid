@@ -35,6 +35,41 @@ class SharedPrefsKeyValueStore implements KeyValueStore {
   }
 }
 
+/// The teacher's own number, remembered ON THIS DEVICE when the teacher asks
+/// for it («ابقَ مسجّلًا»), so an update of the app or a closed tab never asks
+/// for it again. It is the same kind of secret as a saved password in a
+/// browser: anyone who can use this browser profile can publish as this
+/// teacher until she signs out («خروج»), which erases it.
+class TeacherSavedAccess {
+  TeacherSavedAccess(this._store);
+  final KeyValueStore _store;
+
+  static const codeKey = 'teacher_access_code_v1';
+  static const nameKey = 'teacher_access_name_v1';
+
+  Future<String?> code() async {
+    final c = (await _store.getString(codeKey)) ?? '';
+    return c.isEmpty ? null : c;
+  }
+
+  /// The name the server gave for this number (display only).
+  Future<String> name() async => (await _store.getString(nameKey)) ?? '';
+
+  Future<void> save(String code, {String? name}) async {
+    await _store.setString(codeKey, code);
+    if (name != null && name.trim().isNotEmpty) {
+      await _store.setString(nameKey, name.trim());
+    } else {
+      await _store.remove(nameKey);
+    }
+  }
+
+  Future<void> clear() async {
+    await _store.remove(codeKey);
+    await _store.remove(nameKey);
+  }
+}
+
 enum EntryResult { ok, nameRequired, pinRequired, pinWrong }
 
 /// The teacher "entry" of this version (D-2 T01 / T05, open point O-1).

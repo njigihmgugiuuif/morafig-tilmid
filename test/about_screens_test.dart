@@ -23,6 +23,14 @@ void main() {
     }
   });
 
+  test('the usage guide has steps, each with text', () {
+    expect(ConstitutionScreen.usageSteps.length, greaterThanOrEqualTo(6));
+    for (final u in ConstitutionScreen.usageSteps) {
+      expect(u.$2.trim(), isNotEmpty);
+      expect(u.$3.trim().length, greaterThan(20));
+    }
+  });
+
   testWidgets('constitution screen shows its title and first article',
       (tester) async {
     await tester.binding.setSurfaceSize(const Size(400, 2400));
@@ -34,12 +42,13 @@ void main() {
   });
 
   testWidgets('constitution introduces the app and states the AI model as a '
-      'future plan', (tester) async {
-    await tester.binding.setSurfaceSize(const Size(400, 3600));
+      'plan under development', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(400, 6000));
     await tester.pumpWidget(_host(const ConstitutionScreen()));
     expect(find.text('مرافق التلميذ'), findsWidgets);
     expect(find.text(ConstitutionScreen.aiTitle), findsOneWidget);
-    expect(find.textContaining('لم يُنجَز بعد'), findsOneWidget);
+    expect(find.text(ConstitutionScreen.usageTitle), findsOneWidget);
+    expect(find.textContaining('قيد التطوير'), findsOneWidget);
     await tester.tap(find.text('عن التطبيق'));
     await tester.pumpAndSettle();
     expect(find.byType(AboutScreen), findsOneWidget);

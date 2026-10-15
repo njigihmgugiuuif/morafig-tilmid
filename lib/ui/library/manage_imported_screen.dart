@@ -6,10 +6,9 @@ import '../../repositories/teacher_content_repository.dart';
 import '../state/app_state.dart';
 import '../teacher/teacher_widgets.dart';
 import '../widgets/async_section.dart';
-import 'import_screen.dart';
 import '../design/tokens.dart';
 
-/// L05 · إدارة المحتوى المستورد: size used, update, delete. Deleting removes
+/// L05 · إدارة المحتوى المستورد: size used, delete. Deleting removes
 /// the lesson's content only; tasks, mastery and memory are not touched. The
 /// storage ceiling is an open decision (O-3): none is enforced.
 class ManageImportedScreen extends StatefulWidget {
@@ -36,13 +35,6 @@ class _ManageImportedScreenState extends State<ManageImportedScreen> {
     } catch (e) {
       if (mounted) showRefusal(context, e);
     }
-  }
-
-  Future<void> _update() async {
-    await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(builder: (_) => const ImportScreen()),
-    );
-    if (mounted) setState(() {});
   }
 
   @override
@@ -107,12 +99,6 @@ class _ManageImportedScreenState extends State<ManageImportedScreen> {
             ),
             const InfoBox(
                 'حذف درس يزيل محتواه من جهازك فقط. مهامك وإتقانك وذاكرتك لا تتأثر.'),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: _update,
-              icon: const Icon(Icons.attach_file),
-              label: const Text('أضف درسًا أرسله لك أستاذك (دون إنترنت)'),
-            ),
           ],
         ),
       ),

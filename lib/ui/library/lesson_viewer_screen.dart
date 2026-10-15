@@ -132,7 +132,6 @@ class _LessonViewerScreenState extends State<LessonViewerScreen> {
           runSpacing: 4,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            const TeacherBadge(),
             Chip(label: Text(internalLevelLabel(l.internalLevel))),
             if ((l.sectionLabel ?? '').trim().isNotEmpty)
               Chip(

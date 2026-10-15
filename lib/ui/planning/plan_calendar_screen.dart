@@ -126,7 +126,7 @@ class _PlanCalendarScreenState extends State<PlanCalendarScreen> {
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           MqNum('$d', style: MqType.body, color: p.ink),
           if (minutes > 0)
-            MqNum('$minutes', style: MqType.caption, color: p.brandDeep),
+            MqNum('$minutes', style: MqType.caption, color: p.brandInk),
         ]),
       );
 

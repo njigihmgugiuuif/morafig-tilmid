@@ -57,6 +57,11 @@ class MqPalette extends ThemeExtension<MqPalette> {
   final Color brandDeep;
   final Color brandSoft;
   final Color onBrand;
+
+  /// Brand colour for TEXT on a soft brand background: the deep brand in the
+  /// light theme, the bright brand in the dark theme (the deep one is nearly
+  /// as dark as the dark background and made the text vanish).
+  Color get brandInk => isDark ? brand : brandDeep;
   final Color accent;
   final Color accentSoft;
   final Color accentInk;

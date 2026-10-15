@@ -62,7 +62,7 @@ Future<String> _sendOne(
   final password = state.teacherRemote.password;
   if (password == null) {
     throw const RemoteException(
-        'ادخل أولًا بكلمة مرور الأساتذة ثم أعد المحاولة.');
+        'ادخل أولًا برقمك الخاص ثم أعد المحاولة.');
   }
   final out = await TeacherPackageService(repo).exportLesson(lessonId);
   final decoded = jsonDecode(out.json) as Map<String, dynamic>;
@@ -83,7 +83,7 @@ Future<bool> publishLessonOnline(BuildContext context, String lessonId) async {
   final state = context.read<AppState>();
   if (!canSendToStudents(context)) {
     showSnack(context,
-        'الإرسال للتلاميذ يحتاج الدخول بكلمة مرور الأساتذة من رابط لوحة الأستاذ.');
+        'الإرسال للتلاميذ يحتاج الدخول برقمك الخاص من رابط لوحة الأستاذ.');
     return false;
   }
   try {
@@ -109,7 +109,7 @@ Future<void> publishAllOnline(BuildContext context) async {
   final repo = teacherRepo(context);
   if (!canSendToStudents(context)) {
     showSnack(context,
-        'الإرسال للتلاميذ يحتاج الدخول بكلمة مرور الأساتذة من رابط لوحة الأستاذ.');
+        'الإرسال للتلاميذ يحتاج الدخول برقمك الخاص من رابط لوحة الأستاذ.');
     return;
   }
   final items = await repo.listAuthored(status: LessonStatus.published);
@@ -152,7 +152,7 @@ Future<void> unpublishLessonOnline(
   final state = context.read<AppState>();
   final password = state.teacherRemote.password;
   if (!state.lessonRemote.configured || password == null) {
-    showSnack(context, 'سحب الدرس غير متاح قبل تفعيل الخادم والدخول بكلمة المرور.');
+    showSnack(context, 'سحب الدرس غير متاح قبل تفعيل الخادم والدخول برقمك الخاص.');
     return;
   }
   try {

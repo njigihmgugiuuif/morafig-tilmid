@@ -39,10 +39,6 @@ class NodeDetailScreen extends StatelessWidget {
                     : ListView(
                         padding: const EdgeInsets.all(16),
                         children: [
-                          const Align(
-                              alignment: Alignment.centerRight,
-                              child: TeacherBadge()),
-                          const SizedBox(height: 8),
                           Text(agg.lesson.subjectName,
                               style: TextStyle(
                                   color: context.mq.ink2)),

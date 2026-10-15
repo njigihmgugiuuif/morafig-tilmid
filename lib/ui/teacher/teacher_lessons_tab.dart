@@ -76,7 +76,7 @@ class _TeacherLessonsTabState extends State<TeacherLessonsTab> {
                         canSendToStudents(context)
                             ? 'اختر السنة، اكتب بيانات الدرس، اختر صوره من هاتفك، '
                                 'ثم أرسله. يصل إلى التلاميذ تلقائيًا ونتحقق من وصول كل صورة.'
-                            : 'للإرسال ادخل من رابط لوحة الأستاذ بكلمة مرور الأساتذة.',
+                            : 'للإرسال ادخل من رابط لوحة الأستاذ برقمك الخاص.',
                         style: const TextStyle(fontSize: 12.5)),
                     const SizedBox(height: 10),
                     FilledButton.icon(

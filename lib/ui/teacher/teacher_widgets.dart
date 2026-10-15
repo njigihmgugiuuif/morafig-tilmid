@@ -252,7 +252,7 @@ class _BigTag extends StatelessWidget {
           style: TextStyle(
               fontSize: strong ? 17 : 14,
               fontWeight: FontWeight.w800,
-              color: strong ? p.brandDeep : p.ink2)),
+              color: strong ? p.brandInk : p.ink2)),
     );
   }
 }

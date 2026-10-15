@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../design/icon3d.dart';
 import '../design/page.dart';
 import '../design/primitives.dart';
 import '../design/tokens.dart';
@@ -88,7 +89,7 @@ class MoreScreen extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: SizedBox(
-              height: 176,
+              height: 196,
               child: Row(
                 children: [
                   Expanded(child: items[i]),
@@ -130,7 +131,7 @@ class _Entry extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          MqIconTile(icon: icon, tone: tone, size: 46),
+          Mq3dIcon(icon: icon, tone: tone, size: 52),
           const SizedBox(height: 10),
           Text(title,
               maxLines: 2,

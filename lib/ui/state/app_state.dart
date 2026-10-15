@@ -108,11 +108,15 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  /// The teachers' password for this visit (memory only).
+  /// The teacher's number for this visit (memory only).
   final TeacherRemoteSession teacherRemote = TeacherRemoteSession();
 
   late final TeacherSession teacherSession =
       TeacherSession(SharedPrefsKeyValueStore());
+
+  /// The teacher's number remembered on this device (only if she chose it).
+  late final TeacherSavedAccess teacherAccess =
+      TeacherSavedAccess(SharedPrefsKeyValueStore());
 
   static const _studentIdKey = 'current_student_id';
 

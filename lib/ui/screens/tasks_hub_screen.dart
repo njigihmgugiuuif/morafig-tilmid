@@ -5,6 +5,7 @@ import '../../database/app_database.dart';
 import '../../repositories/content_repository.dart';
 import '../../repositories/task_repository.dart';
 import '../../services/intelligence_service.dart';
+import '../design/icon3d.dart';
 import '../design/motion.dart';
 import '../design/page.dart';
 import '../design/primitives.dart';
@@ -361,6 +362,29 @@ class _AddTaskBodyState extends State<_AddTaskBody> {
         child: _form(context),
       );
 
+  InputDecoration _deco(MqPalette p, String label, IconData icon,
+          {String? hint, String? suffix}) =>
+      InputDecoration(
+        labelText: label,
+        hintText: hint,
+        suffixText: suffix,
+        prefixIcon: Icon(icon, color: p.brand),
+        filled: true,
+        fillColor: p.surface2,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: p.brand, width: 2),
+        ),
+      );
+
   Widget _form(BuildContext context) {
     final p = context.mq;
     return Form(
@@ -369,42 +393,138 @@ class _AddTaskBodyState extends State<_AddTaskBody> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          Row(
+            children: [
+              const Mq3dIcon(icon: Icons.add_task_rounded, size: 52),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('اكتب ما عليك فعله',
+                        style: MqType.h3.copyWith(color: p.ink)),
+                    const SizedBox(height: 2),
+                    Text('نرتّبه لك حسب الأولوية ونشرح لك السبب.',
+                        style: MqType.caption.copyWith(color: p.ink3)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
           TextFormField(
             controller: _subject,
-            decoration: const InputDecoration(labelText: 'المادة'),
+            textInputAction: TextInputAction.next,
+            decoration: _deco(p, 'المادة', Icons.menu_book_outlined,
+                hint: 'مثال: الرياضيات'),
             validator: (v) =>
                 (v == null || v.trim().isEmpty) ? 'أدخل اسم المادة' : null,
           ),
           const SizedBox(height: 12),
           TextFormField(
             controller: _title,
-            decoration: const InputDecoration(labelText: 'عنوان المهمة / الدرس'),
+            textInputAction: TextInputAction.next,
+            decoration: _deco(p, 'عنوان المهمة / الدرس', Icons.edit_note_rounded,
+                hint: 'مثال: حلّ تمارين الدوال'),
             validator: (v) =>
                 (v == null || v.trim().isEmpty) ? 'أدخل عنوان المهمة' : null,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
+          Text('كم تحتاج من الوقت؟',
+              style: MqType.label.copyWith(color: p.ink2)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final m in const [15, 30, 45, 60, 90])
+                _DurationPill(
+                  minutes: m,
+                  selected: _duration.text.trim() == '$m',
+                  onTap: () => setState(() => _duration.text = '$m'),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
           TextFormField(
             controller: _duration,
             keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: 'المدة (بالدقائق)'),
+            onChanged: (_) => setState(() {}),
+            decoration: _deco(p, 'المدة (بالدقائق)', Icons.timer_outlined,
+                suffix: 'دقيقة'),
             validator: (v) {
               final n = int.tryParse(v ?? '');
               if (n == null || n <= 0) return 'أدخل مدة صحيحة';
               return null;
             },
           ),
-          const SizedBox(height: 4),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            activeColor: p.brand,
-            title: Text('قابلة للتقسيم إلى جلسات أقصر',
-                style: MqType.body.copyWith(color: p.ink)),
-            value: _splittable,
-            onChanged: (v) => setState(() => _splittable = v),
+          const SizedBox(height: 14),
+          MqCard(
+            kind: MqCardKind.soft,
+            padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
+            child: Row(
+              children: [
+                Icon(Icons.call_split_rounded, color: p.brand),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('قابلة للتقسيم إلى جلسات أقصر',
+                          style: MqType.body.copyWith(color: p.ink)),
+                      Text('مناسبة للدروس الطويلة',
+                          style: MqType.caption.copyWith(color: p.ink3)),
+                    ],
+                  ),
+                ),
+                Switch(
+                  activeColor: p.brand,
+                  value: _splittable,
+                  onChanged: (v) => setState(() => _splittable = v),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 8),
-          MqButton(label: 'إضافة', icon: Icons.add_rounded, block: true, onPressed: _submit),
+          const SizedBox(height: 18),
+          MqButton(
+              label: 'إضافة المهمة',
+              icon: Icons.add_rounded,
+              block: true,
+              onPressed: _submit),
         ],
+      ),
+    );
+  }
+}
+
+/// A quick duration choice (15 / 30 / 45 / 60 / 90 minutes).
+class _DurationPill extends StatelessWidget {
+  const _DurationPill(
+      {required this.minutes, required this.selected, required this.onTap});
+  final int minutes;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.mq;
+    return MqPressable(
+      onTap: onTap,
+      semanticLabel: '$minutes دقيقة',
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        constraints: const BoxConstraints(minHeight: 40, minWidth: 64),
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          color: selected ? p.brandSoft : p.surface2,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+              color: selected ? p.brand : Colors.transparent, width: 1.5),
+        ),
+        child: Text('$minutes د',
+            style: MqType.label
+                .copyWith(color: selected ? p.brandInk : p.ink2)),
       ),
     );
   }

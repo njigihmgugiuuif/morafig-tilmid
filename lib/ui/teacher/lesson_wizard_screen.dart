@@ -517,7 +517,7 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
     }
     if (!canSendToStudents(context)) {
       showSnack(context,
-          'حُفظ الدرس. للإرسال ادخل بكلمة مرور الأساتذة ثم اضغط «إرسال الدرس للتلاميذ».');
+          'حُفظ الدرس. للإرسال ادخل برقمك الخاص ثم اضغط «إرسال الدرس للتلاميذ».');
       return;
     }
     setState(() => _busy = true);
@@ -1038,7 +1038,7 @@ class _LessonWizardScreenState extends State<LessonWizardScreen> {
         const SizedBox(height: 8),
         if (!canSendToStudents(context))
           const InfoBox(
-              'للإرسال إلى التلاميذ ادخل بكلمة مرور الأساتذة من رابط لوحة الأستاذ. '
+              'للإرسال إلى التلاميذ ادخل برقمك الخاص من رابط لوحة الأستاذ. '
               'يُحفظ الدرس هنا في الحالتين.',
               icon: Icons.lock_outline),
         const SizedBox(height: 8),
@@ -1100,7 +1100,7 @@ class _BigChoice extends StatelessWidget {
                 style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
-                    color: selected ? mq.brandDeep : mq.ink)),
+                    color: selected ? mq.brandInk : mq.ink)),
           ),
         ]),
       ),
