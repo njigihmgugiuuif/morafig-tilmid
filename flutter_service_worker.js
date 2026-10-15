@@ -20,7 +20,7 @@
 // In the repository this file is a TEMPLATE. The deploy workflow copies it over
 // build/web/flutter_service_worker.js after filling BUILD and PRECACHE.
 
-const BUILD = 'e9a6a75d64a7730c';
+const BUILD = '5163adc40d7d825c';
 const CACHE = 'mq-app-v1';
 const PRECACHE = ["","about/","about/index.html","assets/AssetManifest.bin","assets/AssetManifest.bin.json","assets/FontManifest.json","assets/NOTICES","assets/fonts/MaterialIcons-Regular.otf","assets/fonts/fallback/Roboto-Regular.ttf","assets/shaders/ink_sparkle.frag","assets/shaders/stretch_effect.frag","canvaskit/canvaskit.js","canvaskit/canvaskit.js.symbols","canvaskit/canvaskit.wasm","canvaskit/chromium/canvaskit.js","canvaskit/chromium/canvaskit.js.symbols","canvaskit/chromium/canvaskit.wasm","canvaskit/webparagraph/canvaskit.js","canvaskit/webparagraph/canvaskit.js.symbols","canvaskit/webparagraph/canvaskit.wasm","canvaskit/wimp.js","canvaskit/wimp.js.symbols","canvaskit/wimp.wasm","diagnose_database.html","drift_worker.js","favicon.png","flutter.js","flutter_bootstrap.js","icons/Icon-192.png","icons/Icon-512.png","icons/Icon-maskable-192.png","icons/Icon-maskable-512.png","index.html","main.dart.js","manifest.json","probe.html","robots.txt","sitemap.xml","sqlite3.wasm","teacher/","teacher/index.html","version.json"];
 const CDN_HOSTS = ['www.gstatic.com', 'fonts.gstatic.com', 'fonts.googleapis.com'];
