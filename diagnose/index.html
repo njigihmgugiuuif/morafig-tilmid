@@ -101,11 +101,30 @@
               if (w && w.scriptURL.indexOf('flutter_service_worker.js') >= 0) {
                 return reg.update();
               }
-              return navigator.serviceWorker.register('flutter_service_worker.js?v=2776531400') /* Flutter's service worker is deprecated and will be removed in a future Flutter release. */;
+              return navigator.serviceWorker.register('flutter_service_worker.js?v=1187584936') /* Flutter's service worker is deprecated and will be removed in a future Flutter release. */;
             });
           })
           .catch(function () {});
       });
+      // «جاهز دون إنترنت»: true only when OUR worker is active AND the saved
+      // copy really holds the start page and the files the app cannot start
+      // without (the app's settings screen shows this to the student).
+      window.mqOfflineReady = function () {
+        try {
+          if (!('serviceWorker' in navigator) || !window.caches) return Promise.resolve(false);
+          return navigator.serviceWorker.getRegistration().then(function (reg) {
+            if (!reg || !reg.active) return false;
+            return caches.open('mq-app-v1').then(function (c) {
+              var base = document.baseURI;
+              return Promise.all([
+                c.match(base, { ignoreSearch: true }),
+                c.match(new URL('main.dart.js', base).href, { ignoreSearch: true }),
+                c.match(new URL('flutter_bootstrap.js', base).href, { ignoreSearch: true })
+              ]).then(function (r) { return !!(r[0] && r[1] && r[2]); });
+            });
+          }).catch(function () { return false; });
+        } catch (_) { return Promise.resolve(false); }
+      };
       // Ask the browser not to clear the app's data under storage pressure
       // (Chrome answers silently; Firefox would show a question, so skip it).
       try {
