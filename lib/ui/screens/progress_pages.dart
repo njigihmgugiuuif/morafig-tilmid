@@ -12,6 +12,7 @@ import '../state/app_state.dart';
 import '../state/home_data.dart';
 import '../state/progress_insights.dart';
 import '../widgets/priority_views.dart';
+import 'exam_load_card.dart';
 import 'exams_screen.dart';
 
 MqTone _bandTone(double v) {
@@ -466,6 +467,7 @@ class PrioritiesPage extends StatelessWidget {
           children: [
             _rankedCard(context, d.ranked),
             _examsCard(context, d.exams),
+            ExamLoadCard(app: app, reloadKey: reloadKey),
             Text(
                 'الأولوية رقم من 0 إلى 1 يحسبه محرّك الأولويات من عوامل مسجَّلة. '
                 'المعامل الرسمي وارتباط المهمة بهدفك لا يدخلان فيه إلا حين تتوفر بياناتهما.',

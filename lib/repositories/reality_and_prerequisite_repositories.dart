@@ -37,6 +37,12 @@ class RealityConstraintRepository {
       (_db.select(_db.realityConstraints)
             ..where((t) => t.studentId.equals(studentId)))
           .get();
+
+  /// Removes one constraint the student typed (an emergency that is over, or
+  /// a mistake). It only deletes; no path here can create or change one.
+  Future<int> deleteById(String id) => (_db.delete(_db.realityConstraints)
+        ..where((t) => t.id.equals(id)))
+      .go();
 }
 
 class PrerequisiteCycleException implements Exception {

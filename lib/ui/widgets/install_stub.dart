@@ -4,3 +4,4 @@ bool isStandalone() => false;
 Future<bool> promptInstall() async => false;
 bool isIos() => false;
 void watchInstall(void Function() onChange) {}
+Future<bool> offlineReady() async => false;

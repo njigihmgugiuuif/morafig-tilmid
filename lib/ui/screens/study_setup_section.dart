@@ -8,6 +8,7 @@ import '../design/states.dart';
 import '../design/tokens.dart';
 import '../reality/reality_hub_screen.dart';
 import '../state/app_state.dart';
+import 'school_timetable_screen.dart';
 
 /// Settings section: edit the school year and stream any time, open the
 /// commitments screen, and reset ONLY the year/stream (nothing else).
@@ -152,6 +153,17 @@ class _StudySetupSectionState extends State<StudySetupSection> {
           const SizedBox(height: 4),
           Text('لا تبني الخطة على هذه الأوقات. عدّلها أو أضف إليها متى شئت.',
               style: MqType.small.copyWith(color: mq.ink2)),
+          const SizedBox(height: 8),
+          MqButton(
+            label: 'جدول المدرسة',
+            icon: Icons.table_chart_outlined,
+            kind: MqButtonKind.secondary,
+            block: true,
+            onPressed: () => Navigator.of(context).push<void>(
+              MaterialPageRoute<void>(
+                  builder: (_) => const SchoolTimetableScreen()),
+            ),
+          ),
           const SizedBox(height: 8),
           MqButton(
             label: 'التزاماتي وأوقاتي',

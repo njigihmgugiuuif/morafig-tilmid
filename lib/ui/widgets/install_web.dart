@@ -12,6 +12,9 @@ external JSPromise<JSBoolean> _install();
 @JS('mqIsIos')
 external bool _isIos();
 
+@JS('mqOfflineReady')
+external JSPromise<JSBoolean> _offlineReady();
+
 @JS('mqWatchInstall')
 external void _watch(JSFunction callback);
 
@@ -54,5 +57,15 @@ void watchInstall(void Function() onChange) {
     _watch(onChange.toJS);
   } catch (_) {
     // No watcher: the button simply keeps the state it had at first paint.
+  }
+}
+
+/// True when the offline worker is active and the saved copy holds the start
+/// page and the files the app needs to start. False on any doubt.
+Future<bool> offlineReady() async {
+  try {
+    return (await _offlineReady().toDart).toDart;
+  } catch (_) {
+    return false;
   }
 }

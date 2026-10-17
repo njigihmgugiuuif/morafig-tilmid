@@ -13,6 +13,7 @@ import '../design/primitives.dart';
 import '../design/sheet.dart';
 import '../design/states.dart';
 import '../design/tokens.dart';
+import '../screens/school_timetable_screen.dart';
 import '../state/app_state.dart';
 import '../widgets/unsaved_changes_scope.dart';
 
@@ -59,6 +60,32 @@ class _RealityHubScreenState extends State<RealityHubScreen> {
     if (ok == true && mounted) setState(() => _tick++);
   }
 
+  /// Asks before deleting something the student typed, then deletes it and
+  /// reloads the list. Nothing is deleted without the question.
+  Future<void> _confirmDelete(String what, Future<int> Function() run) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('حذف $what'),
+        content: const Text('سيُحذف نهائيًا من خطتك. هل تتابع؟'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('تراجع')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('احذف')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await run();
+    if (!mounted) return;
+    setState(() => _tick++);
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('تم الحذف.')));
+  }
+
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
@@ -83,6 +110,19 @@ class _RealityHubScreenState extends State<RealityHubScreen> {
               tone: MqTone.neutral,
               text:
                   'أدخل ما يملأ أسبوعك فعلًا (مدرسة، نوم، التزامات). لا نضع لك جدولًا افتراضيًا.'),
+          const SizedBox(height: 10),
+          MqButton(
+              label: 'جدول المدرسة (شبكة الحصص)',
+              icon: Icons.table_chart_outlined,
+              block: true,
+              onPressed: () {
+                Navigator.of(context)
+                    .push<void>(MaterialPageRoute<void>(
+                        builder: (_) => const SchoolTimetableScreen()))
+                    .then((_) {
+                  if (mounted) setState(() => _tick++);
+                });
+              }),
           const SizedBox(height: 10),
           MqButton(
               label: 'إضافة كتلة',
@@ -126,6 +166,13 @@ class _RealityHubScreenState extends State<RealityHubScreen> {
                             ],
                           ),
                         ),
+                        MqIconButton(
+                            icon: Icons.delete_outline_rounded,
+                            label: 'احذف هذه الكتلة',
+                            onTap: () => _confirmDelete(
+                                'الكتلة',
+                                () => WeeklyTemplateRepository(app.db)
+                                    .deleteById(e.id))),
                       ]),
                     ),
                   ),
@@ -181,6 +228,13 @@ class _RealityHubScreenState extends State<RealityHubScreen> {
                             ],
                           ),
                         ),
+                        MqIconButton(
+                            icon: Icons.delete_outline_rounded,
+                            label: 'احذف هذه النافذة',
+                            onTap: () => _confirmDelete(
+                                'النافذة',
+                                () => AvailabilityRepository(app.db)
+                                    .deleteById(a.id))),
                       ]),
                     ),
                   ),
@@ -230,6 +284,13 @@ class _RealityHubScreenState extends State<RealityHubScreen> {
                             ],
                           ),
                         ),
+                        MqIconButton(
+                            icon: Icons.delete_outline_rounded,
+                            label: 'احذف هذا الظرف',
+                            onTap: () => _confirmDelete(
+                                'الظرف',
+                                () => RealityConstraintRepository(app.db)
+                                    .deleteById(r.id))),
                       ]),
                     ),
                   ),
