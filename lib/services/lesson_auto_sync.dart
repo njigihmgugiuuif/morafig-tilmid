@@ -147,9 +147,12 @@ class LessonAutoSync extends ChangeNotifier {
       if (r.changedAnything) {
         _revision++;
         _revisionNotifier.value = _revision;
-        _notice = r.added + r.updated == 1
-            ? 'وصل درس جديد.'
-            : 'وصلت ${r.added + r.updated} دروس جديدة.';
+        final got = r.added + r.updated;
+        _notice = got == 0
+            ? 'حُذف من جهازك ${r.removed} درس لم يعد عند الأستاذ.'
+            : got == 1
+                ? 'وصل درس جديد.'
+                : 'وصلت $got دروس جديدة.';
         Timer(const Duration(seconds: 12), clearNotice);
       }
     } on RemoteException catch (e) {

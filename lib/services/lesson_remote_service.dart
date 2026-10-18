@@ -588,6 +588,7 @@ class SyncReport {
     this.updated = 0,
     this.unchanged = 0,
     this.failed = 0,
+    this.removed = 0,
     this.pagesReceived = 0,
     this.errors = const [],
   });
@@ -596,19 +597,23 @@ class SyncReport {
   final int unchanged;
   final int failed;
 
+  /// Local copies deleted because the teacher's server no longer has them.
+  final int removed;
+
   /// Pages (photos) actually downloaded and stored in this run.
   final int pagesReceived;
   final List<String> errors;
   int get total => added + updated + unchanged + failed;
-  bool get changedAnything => added + updated > 0;
+  bool get changedAnything => added + updated + removed > 0;
 
   String get summary {
-    if (total == 0) return 'لا دروس منشورة في هذا المستوى على الخادم حتى الآن.';
+    if (total == 0 && removed == 0) return 'لا دروس منشورة في هذا المستوى على الخادم حتى الآن.';
     final parts = <String>[];
     if (added > 0) parts.add('أُضيف $added');
     if (pagesReceived > 0) parts.add('وصلت $pagesReceived صفحة');
     if (updated > 0) parts.add('حُدّث $updated');
     if (unchanged > 0) parts.add('لم يتغيّر $unchanged');
+    if (removed > 0) parts.add('مُحي $removed لم يعد عند الأستاذ');
     if (failed > 0) parts.add('تعذّر $failed');
     return parts.join(' · ');
   }
@@ -626,10 +631,33 @@ class LessonSyncService {
   final TeacherContentRepository _repo;
   final TeacherPackageService _packages;
 
+  /// Deletes the lessons that came from the server (imported, with a server
+  /// id) of this level that the server no longer lists: the teacher
+  /// withdrew them or the test lessons were wiped. Lessons the student
+  /// WROTE (origin authored) are never touched, nor other levels. Only the
+  /// lesson, its pages and attachments go; tasks, mastery and memory stay.
+  Future<int> _removeWithdrawn(
+      int level, List<RemoteLessonEntry> serverEntries) async {
+    final onServer = {for (final e in serverEntries) e.originLessonId};
+    var n = 0;
+    final local = await _repo.listImported(level: level);
+    for (final item in local) {
+      final origin = item.lesson.originLessonId;
+      if (origin == null || origin.isEmpty) continue;
+      if (onServer.contains(origin)) continue;
+      await _repo.deleteLesson(item.lesson.id);
+      n++;
+    }
+    return n;
+  }
+
   Future<SyncReport> syncLevel(int level) async {
     final entries = await _remote.list(level: level);
     var added = 0, updated = 0, unchanged = 0, failed = 0, pages = 0;
     final errors = <String>[];
+    // The list above answered successfully (a failed call throws and never
+    // reaches here), so it is the server's real state for this level.
+    final removed = await _removeWithdrawn(level, entries);
     for (final e in entries) {
       try {
         if (e.fingerprint.isNotEmpty &&
@@ -683,6 +711,7 @@ class LessonSyncService {
       }
     }
     return SyncReport(
+        removed: removed,
         added: added,
         updated: updated,
         unchanged: unchanged,

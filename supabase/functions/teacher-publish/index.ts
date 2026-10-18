@@ -21,6 +21,8 @@
 //   commit    : بعد رفع كل الملفات: تتحقق الدالة أن كل ملف موجود بحجمه
 //               المعلن، ثم تحفظ ملف الفهرس وسطر الدرس في جدول lessons.
 //   unpublish : سحب الدرس وحذف ملفاته.
+//   wipeAll   : للمسؤول وحده (TEACHER_PASSWORD): يمحو كل الدروس وكل الملفات
+//               (حتى الصور اليتيمة من رفع لم يكتمل). لا رجعة فيه.
 //
 // كل صورة ملف مستقل: لا طلب واحد ضخم، وتُعاد المحاولة لكل ملف على حدة.
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -118,6 +120,32 @@ async function ownerOf(
 
 function canWrite(caller: Caller, owner: string | null): boolean {
   return caller.admin || owner === null || owner === caller.id;
+}
+
+
+// يعدّ كل الملفات تحت مجلد (يدخل المجلدات الفرعية). عنصر بلا id مجلد.
+async function listAllFiles(supabase: any, folder: string): Promise<string[]> {
+  const out: string[] = [];
+  const stack = [folder];
+  while (stack.length > 0) {
+    const dir = stack.pop()!;
+    let offset = 0;
+    while (true) {
+      const l = await supabase.storage.from(BUCKET).list(dir, {
+        limit: 1000,
+        offset,
+      });
+      if (l.error) throw new Error(l.error.message);
+      const items = (l.data ?? []) as { name: string; id: string | null }[];
+      for (const o of items) {
+        if (o.id === null) stack.push(`${dir}/${o.name}`);
+        else out.push(`${dir}/${o.name}`);
+      }
+      if (items.length < 1000) break;
+      offset += 1000;
+    }
+  }
+  return out;
 }
 
 // إبطاء المحاولات الخاطئة (حماية بسيطة من التخمين، ليست حماية كاملة).
@@ -362,6 +390,48 @@ Deno.serve(async (req) => {
       }
     }
     return reply(200, { ok: true, files: wanted.size });
+  }
+
+  // ------------------------------------------------------------ wipeAll
+  if (action === "wipeAll") {
+    if (!caller.admin) {
+      return reply(403, { message: "المسح الكامل للمسؤول وحده." });
+    }
+    if (body.confirm !== "WIPE") {
+      return reply(400, { message: "التأكيد ناقص." });
+    }
+    const del = await supabase.from("lessons").delete()
+      .neq("origin_lesson_id", "");
+    if (del.error) {
+      return reply(500, { message: `تعذّر مسح الدروس: ${del.error.message}` });
+    }
+    let files: string[];
+    try {
+      files = await listAllFiles(supabase, "lessons");
+    } catch (e) {
+      return reply(500, { message: `تعذّر سرد الملفات: ${String(e)}` });
+    }
+    let removed = 0;
+    for (let i = 0; i < files.length; i += 100) {
+      const chunk = files.slice(i, i + 100);
+      const r = await supabase.storage.from(BUCKET).remove(chunk);
+      if (r.error) {
+        return reply(500, {
+          message: `تعذّر حذف الملفات: ${r.error.message}`,
+          removed,
+        });
+      }
+      removed += chunk.length;
+    }
+    const left = await supabase.from("lessons").select("origin_lesson_id", {
+      count: "exact",
+      head: true,
+    });
+    return reply(200, {
+      ok: true,
+      filesRemoved: removed,
+      lessonsLeft: left.count ?? 0,
+    });
   }
 
   // ---------------------------------------------------------- unpublish

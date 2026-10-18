@@ -380,6 +380,70 @@ void main() {
     expect(report.summary, contains('لا دروس'));
   });
 
+  test('a lesson wiped from the server is deleted from the student device',
+      () async {
+    final a = await publishedLesson(1, title: 'درس يبقى');
+    final b = await publishedLesson(1, title: 'درس تجريبي');
+    await publish(a);
+    await publish(b);
+    final sync = LessonSyncService(remote, studentRepo);
+    final first = await sync.syncLevel(1);
+    expect(first.added, 2);
+    expect(await studentRepo.listImported(level: 1), hasLength(2));
+
+    await remote.unpublish(password: 'secret-pass', originLessonId: b);
+    final report = await sync.syncLevel(1);
+    expect(report.removed, 1);
+    expect(report.changedAnything, isTrue);
+    final left = await studentRepo.listImported(level: 1);
+    expect(left, hasLength(1));
+    expect(left.single.lesson.title, 'درس يبقى');
+  });
+
+  test('everything wiped: the student device becomes empty, other levels stay',
+      () async {
+    final l1 = await publishedLesson(1);
+    final l2 = await publishedLesson(2);
+    await publish(l1);
+    await publish(l2);
+    final sync = LessonSyncService(remote, studentRepo);
+    await sync.syncLevel(1);
+    await sync.syncLevel(2);
+    server.rows.clear();
+    server.storage.clear();
+    final r1 = await sync.syncLevel(1);
+    expect(r1.removed, 1);
+    expect(await studentRepo.listImported(level: 1), isEmpty);
+    // Level 2 has not synced yet since the wipe: it is still there.
+    expect(await studentRepo.listImported(level: 2), hasLength(1));
+    final r2 = await sync.syncLevel(2);
+    expect(r2.removed, 1);
+    expect(await studentRepo.listImported(level: 2), isEmpty);
+  });
+
+  test('a failed or offline sync never deletes anything', () async {
+    final id = await publishedLesson(1);
+    await publish(id);
+    final sync = LessonSyncService(remote, studentRepo);
+    await sync.syncLevel(1);
+    server.offline = true;
+    expect(() => sync.syncLevel(1), throwsA(isA<RemoteException>()));
+    expect(await studentRepo.listImported(level: 1), hasLength(1));
+  });
+
+  test('lessons the student wrote are never removed by the sync', () async {
+    await studentRepo.saveLesson(LessonInput(
+      title: 'درسي',
+      subjectName: 'الرياضيات',
+      internalLevel: 1,
+      teacherName: 'أنا',
+      pages: [PageInput(bytes: jpeg(10))],
+      nodes: [NodeDraft(key: 'mine-${keySeq++}', name: 'ن', pageFrom: 1, pageTo: 1)],
+    ));
+    await LessonSyncService(remote, studentRepo).syncLevel(1);
+    expect(await studentRepo.listAuthored(level: 1), hasLength(1));
+  });
+
   String manifestPathOf(String id) =>
       server.rows[id]!['package_path'] as String;
 
