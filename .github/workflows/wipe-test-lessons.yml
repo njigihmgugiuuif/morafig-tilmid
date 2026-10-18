@@ -1,0 +1,73 @@
+name: Wipe all lessons on server
+
+# Manual only. Deletes EVERY lesson row and EVERY file (photos, manifests,
+# orphan files of unfinished uploads) from the shared Supabase storage.
+# Cannot be undone. Needs the repository secret TEACHER_PASSWORD (the admin
+# password of the teacher-publish function) and the function updated with the
+# new `wipeAll` action. Students' phones clean themselves at their next sync.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type WIPE (capitals) to confirm. Lessons list is shown first.'
+        required: true
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  wipe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show what exists now (read only)
+        run: |
+          URL=$(grep -o "https://[a-z0-9]*\.supabase\.co" lib/services/remote_config.dart | head -1)
+          KEY=$(grep -o "eyJ[A-Za-z0-9_.-]*" lib/services/remote_config.dart | head -1)
+          echo "Server: $URL"
+          curl -sS "$URL/rest/v1/lessons?select=origin_lesson_id,title,teacher_name,internal_level" \
+            -H "apikey: $KEY" -H "Authorization: Bearer $KEY" | python3 -c "
+          import json,sys
+          rows=json.load(sys.stdin)
+          print(len(rows),'lesson(s) on the server')
+          for r in rows: print(' -',r.get('internal_level'),r.get('title'),'|',r.get('teacher_name'))
+          "
+
+      - name: Check the confirmation
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "WIPE" ]; then
+            echo "Not confirmed (you must type WIPE). Nothing was deleted."
+            exit 1
+          fi
+
+      - name: Wipe everything
+        env:
+          TEACHER_PASSWORD: ${{ secrets.TEACHER_PASSWORD }}
+        run: |
+          if [ -z "$TEACHER_PASSWORD" ]; then
+            echo "The secret TEACHER_PASSWORD is not set."; exit 1
+          fi
+          URL=$(grep -o "https://[a-z0-9]*\.supabase\.co" lib/services/remote_config.dart | head -1)
+          KEY=$(grep -o "eyJ[A-Za-z0-9_.-]*" lib/services/remote_config.dart | head -1)
+          BODY=$(python3 -c "import json,os;print(json.dumps({'action':'wipeAll','password':os.environ['TEACHER_PASSWORD'],'confirm':'WIPE'}))")
+          CODE=$(curl -sS -o out.json -w "%{http_code}" -X POST "$URL/functions/v1/teacher-publish" \
+            -H "apikey: $KEY" -H "Authorization: Bearer $KEY" \
+            -H "Content-Type: application/json" -d "$BODY")
+          echo "HTTP $CODE"
+          cat out.json; echo
+          if [ "$CODE" != "200" ]; then
+            echo "Failed. If the message says unknown action, redeploy the function code first."
+            exit 1
+          fi
+
+      - name: Verify it is empty
+        run: |
+          URL=$(grep -o "https://[a-z0-9]*\.supabase\.co" lib/services/remote_config.dart | head -1)
+          KEY=$(grep -o "eyJ[A-Za-z0-9_.-]*" lib/services/remote_config.dart | head -1)
+          N=$(curl -sS "$URL/rest/v1/lessons?select=origin_lesson_id" -H "apikey: $KEY" -H "Authorization: Bearer $KEY" | python3 -c "import json,sys;print(len(json.load(sys.stdin)))")
+          echo "Lessons left: $N"
+          [ "$N" = "0" ]
